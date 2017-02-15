@@ -39,7 +39,7 @@ class Heap {
       else if (cur_size > 0) {
         const T& top_item = heap_[0];
         // max heap
-        if (top_item < new_item) {
+        if (new_item < top_item) {
           // remove old top one
           this->Pop();
 

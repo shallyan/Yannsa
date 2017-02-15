@@ -32,5 +32,6 @@
 *.app
 
 build_test/*
+yannsa_test
 
 *.swp
