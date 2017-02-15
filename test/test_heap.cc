@@ -2,7 +2,6 @@
 #include <util/heap.h>
 #include <string>
 #include <vector>
-#include <iostream>
 
 using namespace std;
 using namespace yannsa;
@@ -27,4 +26,27 @@ TEST(HeapTest, Insert) {
 
   vector<int>& content = h.GetContent();
   ASSERT_EQ(content[0], 2);
+}
+
+TEST(HeapTest, InsertObj) {
+  struct Obj {
+    int num;
+    string str; 
+
+    Obj(int n, string s) : num(n), str(s) {}
+    inline bool operator<(const Obj& obj_a) const {
+      return str < obj_a.str;
+    }
+  };
+
+  Heap<Obj> h(3);
+  h.Insert(Obj(3, "abc"));
+  h.Insert(Obj(2, "def"));
+
+  vector<Obj>& content = h.GetContent();
+  ASSERT_EQ(content[0].num, 2);
+  ASSERT_EQ(content[0].str, "def");
+
+  h.Insert(Obj(5, "tbc"));
+  ASSERT_EQ(content[0].str, "tbc");
 }
