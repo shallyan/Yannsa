@@ -13,11 +13,11 @@ namespace util {
 template <typename VectorCoordinateType>
 using PointVector = Eigen::Matrix<VectorCoordinateType, Eigen::Dynamic, 1, Eigen::ColMajor>;
 
-template <typename KeyType, typename VectorCoordinateType>
+template <typename KeyType, typename PointType>
 class DataSet {
   // rearrange dataset for cache efficiency
   public:
-    void AddPoint(const KeyType& key, const PointVector<VectorCoordinateType>& new_point) {
+    void AddPoint(const KeyType& key, const PointType& new_point) {
       if (key2index_.find(key) != key2index_.end()) {
         // key exist
         throw DataKeyExistError("Key already exists in dataset!");
@@ -35,7 +35,7 @@ class DataSet {
     // key to index
     std::map<KeyType, int> key2index_;
     // index to point 
-    std::vector<PointVector<VectorCoordinateType> > index2point_;
+    std::vector<PointType> index2point_;
 };
 
 } // namespace util

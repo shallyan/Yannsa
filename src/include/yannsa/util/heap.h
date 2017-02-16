@@ -7,7 +7,7 @@
 namespace yannsa {
 namespace util {
 
-template <typename T>
+template <typename PointType>
 class Heap {
   public:
     Heap(int max_size) {
@@ -19,7 +19,7 @@ class Heap {
       return heap_.size();
     }
 
-    inline std::vector<T>& GetContent() {
+    inline std::vector<PointType>& GetContent() {
       return this->heap_;
     }
 
@@ -31,27 +31,27 @@ class Heap {
       std::make_heap(heap_.begin(), heap_.end());
     }
 
-    void Insert(const T& new_item) {
+    void Insert(const PointType& new_point) {
       size_t cur_size = this->Size();
       if (cur_size < max_size_) {
-        this->Push(new_item);
+        this->Push(new_point);
       }
       else if (cur_size > 0) {
-        const T& top_item = heap_[0];
+        const PointType& top_point = heap_.front();
         // max heap
-        if (new_item < top_item) {
+        if (new_point < top_point) {
           // remove old top one
           this->Pop();
 
           // add current new one
-          this->Push(new_item);
+          this->Push(new_point);
         }
       }
     }
 
   private:
-    void Push(const T& new_item) {
-      heap_.push_back(new_item);
+    void Push(const PointType& new_point) {
+      heap_.push_back(new_point);
       std::push_heap(heap_.begin(), heap_.end());
     }
 
@@ -61,7 +61,7 @@ class Heap {
     }
 
   private:
-    std::vector<T> heap_;
+    std::vector<PointType> heap_;
     int max_size_;
 };
 

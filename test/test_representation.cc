@@ -27,7 +27,7 @@ TEST(RepresentationTest, DataSetAddPoint) {
   PointVector<float> point_a(3);
   point_a << 0.1, 0.2, 0.3;
 
-  DataSet<string, float> dataset;
+  DataSet<string, PointVector<float> > dataset;
   dataset.AddPoint("point_a", point_a); 
 
   ASSERT_EQ(dataset.Size(), 1);
