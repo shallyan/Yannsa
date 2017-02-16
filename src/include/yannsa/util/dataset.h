@@ -1,20 +1,15 @@
-#ifndef YANNSA_REPRESENTATION_H
-#define YANNSA_REPRESENTATION_H
+#ifndef YANNSA_DATASET_H
+#define YANNSA_DATASET_H
 
 #include "yannsa/util/common.h"
-#include <eigen/Dense>
 #include <map>
 #include <vector>
 
 namespace yannsa {
 namespace util {
 
-// use Eigen to represent vector temporarily
-template <typename VectorCoordinateType>
-using PointVector = Eigen::Matrix<VectorCoordinateType, Eigen::Dynamic, 1, Eigen::ColMajor>;
-
 template <typename KeyType, typename PointType>
-class DataSet {
+class Dataset {
   // rearrange dataset for cache efficiency
   public:
     void AddPoint(const KeyType& key, const PointType& new_point) {
