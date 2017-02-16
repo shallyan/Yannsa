@@ -3,6 +3,7 @@ CXX_FLAGS=-std=c++11 -O3 -march=native
 LD_FLAGS=-pthread
 
 YANNSA_INC=src/include/
+THIRD_PARTY_INC=third_party/
 
 GTEST_PATH=/usr/local
 GTEST_LIB=$(GTEST_PATH)/lib/
@@ -20,7 +21,7 @@ UNIT_TEST_OBJ=$(patsubst $(UNIT_TEST_ROOT)/%.cc, $(UNIT_TEST_OBJ_ROOT)/%.o, $(UN
 
 $(UNIT_TEST_OBJ_ROOT)/%.o: $(UNIT_TEST_ROOT)/%.cc
 	@mkdir -p $(@D)
-	$(CXX) $(UNIT_TEST_FLAGS) -I $(GTEST_INC) -I $(YANNSA_INC) -o $@ -c $<
+	$(CXX) $(UNIT_TEST_FLAGS) -I $(GTEST_INC) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ -c $<
 
 $(UNIT_TEST_TARGET): $(UNIT_TEST_OBJ) 
 	$(CXX) $(UNIT_TEST_FLAGS) -o $@ $^ $(UNIT_TEST_LD_FLAGS)

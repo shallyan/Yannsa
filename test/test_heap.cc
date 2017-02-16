@@ -1,5 +1,5 @@
+#include "util/heap.h"
 #include <gtest/gtest.h>
-#include <util/heap.h>
 #include <string>
 #include <vector>
 
