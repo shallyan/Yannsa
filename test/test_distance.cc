@@ -1,5 +1,4 @@
 #include "yannsa/util/distance.h"
-#include "yannsa/util/common.h"
 #include <gtest/gtest.h>
 #include <string>
 

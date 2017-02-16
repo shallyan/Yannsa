@@ -5,7 +5,6 @@
 #include <stdexcept>
 
 namespace yannsa {
-namespace util {
 
 class YannsaError : public std::logic_error {
   public:
@@ -17,7 +16,11 @@ class DataKeyExistError : public YannsaError {
     DataKeyExistError(const std::string& error_msg) : YannsaError(error_msg) {}
 };
 
-} // namespace util
+class DataKeyNotExistError : public YannsaError {
+  public:
+    DataKeyNotExistError(const std::string& error_msg) : YannsaError(error_msg) {}
+};
+
 } // namespace yannsa
 
 #endif
