@@ -1,5 +1,5 @@
-#include "util/representation.h"
-#include "util/common.h"
+#include "yannsa/util/representation.h"
+#include "yannsa/util/common.h"
 #include <gtest/gtest.h>
 #include <string>
 

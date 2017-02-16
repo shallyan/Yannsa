@@ -1,7 +1,7 @@
 #ifndef YANNSA_REPRESENTATION_H
 #define YANNSA_REPRESENTATION_H
 
-#include "util/common.h"
+#include "yannsa/util/common.h"
 #include <eigen/Dense>
 #include <map>
 #include <vector>
