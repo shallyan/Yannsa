@@ -26,6 +26,11 @@ TEST(HeapTest, Insert) {
 
   vector<int>& content = h.GetContent();
   ASSERT_EQ(content[0], 2);
+
+  h.Sort();
+  ASSERT_EQ(content[0], 1);
+  ASSERT_EQ(content[1], 2);
+  ASSERT_EQ(content[2], 2);
 }
 
 TEST(HeapTest, InsertObj) {
