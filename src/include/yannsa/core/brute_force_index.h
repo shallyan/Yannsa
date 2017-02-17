@@ -21,6 +21,9 @@ class BruteForceIndex : public BaseIndex<PointType, DistanceFuncType, DistanceTy
     typedef typename BaseClass::IndexDataset::DataIterator DataIterator;
     typedef PointType IndexPoint;
 
+  private:
+    typedef PointDistancePair<std::string, DistanceType> PointDistancePairItem;
+
   public:
     BruteForceIndex(typename BaseClass::IndexDatasetPtr& dataset_ptr) : BaseClass(dataset_ptr) {}
 
@@ -28,12 +31,12 @@ class BruteForceIndex : public BaseIndex<PointType, DistanceFuncType, DistanceTy
       search_result.clear();
 
       DistanceFuncType distance_func;
-      util::Heap<PointDistancePair<std::string, DistanceType> > k_candidates(k); 
+      util::Heap<PointDistancePairItem> k_candidates(k); 
 
       DataIterator iter = this->dataset_ptr_->Begin();
       while (iter != this->dataset_ptr_->End()) {
         DistanceType dist = distance_func(iter->second, query); 
-        k_candidates.Insert(PointDistancePair<std::string, DistanceType>(iter->first, dist));
+        k_candidates.Insert(PointDistancePairItem(iter->first, dist));
         iter++;
       } 
       k_candidates.Sort();

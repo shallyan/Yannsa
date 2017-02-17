@@ -38,19 +38,6 @@ class BaseIndex {
       return have_built_;
     }
 
-    /*
-    void AddPoint(const std::string& key, const PointType& new_point) {
-      // add data to dataset
-      dataset.AddPoint(key, new_point);
-
-      // add data to knn index
-      IntIndex point_index = index2key_.size();
-      index2key_.push_back(key);
-      index2neighbor_.push_back(IndexNode(neighbor_num_));
-      this->UpdateIndex(point_index);
-    }
-    */
-
     virtual void Build() {} 
 
     virtual void Clear() {} 
