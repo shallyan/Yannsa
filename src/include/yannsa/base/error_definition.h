@@ -11,14 +11,14 @@ class YannsaError : public std::logic_error {
     YannsaError(const std::string& error_msg) : logic_error(error_msg) {}
 };
 
-class DataKeyExistError : public YannsaError {
+class KeyExistError : public YannsaError {
   public:
-    DataKeyExistError(const std::string& error_msg) : YannsaError(error_msg) {}
+    KeyExistError(const std::string& error_msg) : YannsaError(error_msg) {}
 };
 
-class DataKeyNotExistError : public YannsaError {
+class KeyNotExistError : public YannsaError {
   public:
-    DataKeyNotExistError(const std::string& error_msg) : YannsaError(error_msg) {}
+    KeyNotExistError(const std::string& error_msg) : YannsaError(error_msg) {}
 };
 
 } // namespace yannsa

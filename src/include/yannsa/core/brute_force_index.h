@@ -2,7 +2,6 @@
 #define YANNSA_BRUTE_FORCE_H 
 
 #include "yannsa/base/type_definition.h"
-#include "yannsa/core/dataset.h"
 #include "yannsa/core/base_index.h"
 #include "yannsa/util/heap.h"
 #include "yannsa/util/parameter.h"
@@ -16,16 +15,16 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType =
 class BruteForceIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
   public:
     typedef BaseIndex<PointType, DistanceFuncType, DistanceType> BaseClass;
-    typedef typename BaseClass::IndexDataset IndexDataset;
-    typedef typename BaseClass::IndexDatasetPtr IndexDatasetPtr;
-    typedef typename BaseClass::IndexDataset::DataIterator DataIterator;
-    typedef PointType IndexPoint;
+    typedef typename BaseClass::Dataset Dataset;
+    typedef typename BaseClass::DatasetPtr DatasetPtr;
+    typedef typename BaseClass::Dataset::Iterator Iterator;
+    typedef PointType PointVector;
 
   private:
     typedef PointDistancePair<std::string, DistanceType> PointDistancePairItem;
 
   public:
-    BruteForceIndex(typename BaseClass::IndexDatasetPtr& dataset_ptr) : BaseClass(dataset_ptr) {}
+    BruteForceIndex(typename BaseClass::DatasetPtr& dataset_ptr) : BaseClass(dataset_ptr) {}
 
     void Search(const PointType& query, int k, std::vector<std::string>& search_result) {
       search_result.clear();
@@ -33,7 +32,7 @@ class BruteForceIndex : public BaseIndex<PointType, DistanceFuncType, DistanceTy
       DistanceFuncType distance_func;
       util::Heap<PointDistancePairItem> k_candidates(k); 
 
-      DataIterator iter = this->dataset_ptr_->Begin();
+      Iterator iter = this->dataset_ptr_->Begin();
       while (iter != this->dataset_ptr_->End()) {
         DistanceType dist = distance_func(iter->second, query); 
         k_candidates.Insert(PointDistancePairItem(iter->first, dist));

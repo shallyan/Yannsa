@@ -1,5 +1,5 @@
-#ifndef YANNSA_DATASET_H
-#define YANNSA_DATASET_H
+#ifndef YANNSA_CONTAINER_H
+#define YANNSA_CONTAINER_H 
 
 #include "yannsa/base/error_definition.h"
 #include "yannsa/base/type_definition.h"
@@ -8,18 +8,18 @@
 #include <utility>
 
 namespace yannsa {
-namespace core {
+namespace util {
 
 template <typename PointType>
-class Dataset {
+class Container {
   public:
-    typedef std::pair<std::string, PointType> DataKeyPointPair;
-    typedef typename std::vector<DataKeyPointPair>::iterator DataIterator;
+    typedef std::pair<std::string, PointType> KeyPointPair;
+    typedef typename std::vector<KeyPointPair>::iterator Iterator;
 
   public:
     void AddPoint(const std::string& key, const PointType& new_point) {
       if (key2index_.find(key) != key2index_.end()) {
-        throw DataKeyExistError("Key already exists in dataset!");
+        throw KeyExistError("Key already exists!");
       }
 
       key2index_[key] = index2key_point_pair_.size();
@@ -35,11 +35,11 @@ class Dataset {
       index2key_point_pair_.clear();
     }
 
-    inline DataIterator Begin() {
+    inline Iterator Begin() {
       return index2key_point_pair_.begin();
     }
 
-    inline DataIterator End() {
+    inline Iterator End() {
       return index2key_point_pair_.end();
     }
 
@@ -48,10 +48,10 @@ class Dataset {
     // index to point, for fast traverse
     // 2-layer storage can be used to rearrange dataset for cache efficiency
     std::unordered_map<std::string, IntIndex> key2index_;
-    std::vector<DataKeyPointPair> index2key_point_pair_;
+    std::vector<KeyPointPair> index2key_point_pair_;
 };
 
-} // namespace core 
+} // namespace util 
 } // namespace yannsa
 
 #endif

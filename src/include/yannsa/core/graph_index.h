@@ -2,7 +2,6 @@
 #define YANNSA_GRAPH_INDEX_H 
 
 #include "yannsa/base/type_definition.h"
-#include "yannsa/core/dataset.h"
 #include "yannsa/core/base_index.h"
 #include "yannsa/util/heap.h"
 #include "yannsa/util/parameter.h"
@@ -17,18 +16,18 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType =
 class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
   public:
     typedef BaseIndex<PointType, DistanceFuncType, DistanceType> BaseClass;
-    typedef typename BaseClass::IndexDataset IndexDataset;
-    typedef typename BaseClass::IndexDatasetPtr IndexDatasetPtr;
-    typedef typename BaseClass::IndexDataset::DataIterator DataIterator;
-    typedef PointType IndexPoint;
+    typedef typename BaseClass::Dataset Dataset;
+    typedef typename BaseClass::DatasetPtr DatasetPtr;
+    typedef typename BaseClass::Dataset::Iterator Iterator;
+    typedef PointType PointVector;
 
   public:
-    GraphIndex(typename BaseClass::IndexDatasetPtr& dataset_ptr) : BaseClass(dataset_ptr) {}
+    GraphIndex(typename BaseClass::DatasetPtr& dataset_ptr) : BaseClass(dataset_ptr) {}
 
     void Build(const util::GraphIndexParameter& index_param) {
       Clear();
 
-      DataIterator iter = this->dataset_ptr_->Begin();
+      Iterator iter = this->dataset_ptr_->Begin();
       while (iter != this->dataset_ptr_->End()) {
         iter++;
       }

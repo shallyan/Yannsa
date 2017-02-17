@@ -21,9 +21,9 @@ TEST(IndexTest, PointDistancePair) {
 }
 
 TEST(IndexTest, CreateGraphIndex) {
-  CosineGraphIndex<float>::IndexDatasetPtr dataset_ptr(new CosineGraphIndex<float>::IndexDataset()); 
+  CosineGraphIndex<float>::DatasetPtr dataset_ptr(new CosineGraphIndex<float>::Dataset()); 
 
-  CosineGraphIndex<float>::IndexPoint point_a(3);
+  CosineGraphIndex<float>::PointVector point_a(3);
   point_a << 0.1, 0.2, 0.3;
 
   dataset_ptr->AddPoint("a", point_a);
@@ -34,15 +34,15 @@ TEST(IndexTest, CreateGraphIndex) {
 }
 
 TEST(IndexTest, BruteForceIndexSearch) {
-  CosineBruteForceIndex<float>::IndexDatasetPtr dataset_ptr(new CosineBruteForceIndex<float>::IndexDataset()); 
+  CosineBruteForceIndex<float>::DatasetPtr dataset_ptr(new CosineBruteForceIndex<float>::Dataset()); 
 
-  CosineBruteForceIndex<float>::IndexPoint point_a(3);
+  CosineBruteForceIndex<float>::PointVector point_a(3);
   point_a << 0.1, 0.2, 0.3;
-  CosineBruteForceIndex<float>::IndexPoint point_b(3);
+  CosineBruteForceIndex<float>::PointVector point_b(3);
   point_b << 0.0, 0.1, 0.2;
-  CosineBruteForceIndex<float>::IndexPoint point_c(3);
+  CosineBruteForceIndex<float>::PointVector point_c(3);
   point_c << 0.11, 0.2, 0.3;
-  CosineBruteForceIndex<float>::IndexPoint point_d(3);
+  CosineBruteForceIndex<float>::PointVector point_d(3);
   point_d << 0.9, 0.1, 0.2;
 
   dataset_ptr->AddPoint("a", point_a);

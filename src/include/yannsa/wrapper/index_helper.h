@@ -4,7 +4,7 @@
 #include "yannsa/util/point_vector.h"
 #include "yannsa/core/graph_index.h"
 #include "yannsa/wrapper/distance_helper.h"
-#include "yannsa/wrapper/dataset.h"
+#include "yannsa/util/container.h"
 #include <string>
 
 namespace yannsa {

@@ -2,7 +2,7 @@
 #define YANNSA_BASE_INDEX_H
 
 #include "yannsa/base/type_definition.h"
-#include "yannsa/core/dataset.h"
+#include "yannsa/util/container.h"
 #include "yannsa/util/heap.h"
 #include "yannsa/util/parameter.h"
 #include <vector>
@@ -26,12 +26,12 @@ struct PointDistancePair {
 template <typename PointType, typename DistanceFuncType, typename DistanceType = float>
 class BaseIndex {
   public:
-    typedef Dataset<PointType> IndexDataset; 
-    typedef std::shared_ptr<IndexDataset> IndexDatasetPtr; 
+    typedef util::Container<PointType> Dataset; 
+    typedef std::shared_ptr<Dataset> DatasetPtr; 
 
   public:
     // parameters
-    BaseIndex(IndexDatasetPtr& dataset_ptr) :
+    BaseIndex(DatasetPtr& dataset_ptr) :
               dataset_ptr_(dataset_ptr), have_built_(false) {}
 
     inline bool HaveBuilt() {
@@ -45,7 +45,7 @@ class BaseIndex {
     virtual void Search(const PointType& query, int k, std::vector<std::string>& search_result) = 0; 
 
   protected:
-    IndexDatasetPtr dataset_ptr_;
+    DatasetPtr dataset_ptr_;
 
     // whether have built index
     bool have_built_;
