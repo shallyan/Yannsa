@@ -28,6 +28,7 @@ class BaseIndex {
   public:
     typedef util::Container<PointType> Dataset; 
     typedef std::shared_ptr<Dataset> DatasetPtr; 
+    typedef PointType PointVector;
 
   public:
     // parameters

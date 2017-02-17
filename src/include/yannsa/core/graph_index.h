@@ -18,8 +18,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     typedef BaseIndex<PointType, DistanceFuncType, DistanceType> BaseClass;
     typedef typename BaseClass::Dataset Dataset;
     typedef typename BaseClass::DatasetPtr DatasetPtr;
-    typedef typename BaseClass::Dataset::Iterator Iterator;
-    typedef PointType PointVector;
+    typedef typename BaseClass::PointVector PointVector;
 
   public:
     GraphIndex(typename BaseClass::DatasetPtr& dataset_ptr) : BaseClass(dataset_ptr) {}
@@ -27,7 +26,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     void Build(const util::GraphIndexParameter& index_param) {
       Clear();
 
-      Iterator iter = this->dataset_ptr_->Begin();
+      typename Dataset::Iterator iter = this->dataset_ptr_->Begin();
       while (iter != this->dataset_ptr_->End()) {
         iter++;
       }
