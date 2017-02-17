@@ -20,7 +20,7 @@ class Heap {
     }
 
     inline std::vector<PointType>& GetContent() {
-      return this->heap_;
+      return heap_;
     }
 
     inline void Sort() {
@@ -32,19 +32,19 @@ class Heap {
     }
 
     void Insert(const PointType& new_point) {
-      size_t cur_size = this->Size();
+      size_t cur_size = Size();
       if (cur_size < max_size_) {
-        this->Push(new_point);
+        Push(new_point);
       }
       else if (cur_size > 0) {
         const PointType& top_point = heap_.front();
         // max heap
         if (new_point < top_point) {
           // remove old top one
-          this->Pop();
+          Pop();
 
           // add current new one
-          this->Push(new_point);
+          Push(new_point);
         }
       }
     }

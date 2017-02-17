@@ -1,5 +1,5 @@
-#ifndef YANNSA_CORE_H
-#define YANNSA_CORE_H
+#ifndef YANNSA_BASE_INDEX_H
+#define YANNSA_BASE_INDEX_H
 
 #include "yannsa/base/type_definition.h"
 #include "yannsa/core/dataset.h"
@@ -11,50 +11,32 @@
 namespace yannsa {
 namespace core {
 
-template <typename DistanceType>
+template <typename IndexType, typename DistanceType>
 struct PointDistancePair {
-  IntIndex point_index;
+  IndexType point_index;
   DistanceType distance;
 
-  PointDistancePair(IntIndex point, DistanceType dist) : 
+  PointDistancePair(IndexType point, DistanceType dist) : 
                     point_index(point), distance(dist) {}
   inline bool operator<(const PointDistancePair& point_distance_pair) const {
     return distance < point_distance_pair.distance;
   }
 };
 
-template <typename DistanceType>
-struct IndexNode {
-  IndexNode(int neighbor_num) : nearest_neighbor(neighbor_num) {}
-  util::Heap<PointDistancePair<DistanceType> > nearest_neighbor;
-};
-
 template <typename KeyType, typename PointType,
           typename DistanceFuncType, typename DistanceType = float>
-class Index {
+class BaseIndex {
   public:
     typedef Dataset<KeyType, PointType> IndexDataset; 
     typedef std::shared_ptr<IndexDataset> IndexDatasetPtr; 
-    typedef PointType IndexPoint;
 
   public:
     // parameters
-    Index(IndexDatasetPtr& dataset_ptr, const util::IndexParameter& index_param) : 
-          dataset_ptr_(dataset_ptr), index_param_(index_param), have_built_(false) {}
+    BaseIndex(IndexDatasetPtr& dataset_ptr) :
+              dataset_ptr_(dataset_ptr), have_built_(false) {}
 
     inline bool HaveBuilt() {
       return have_built_;
-    }
-
-    void Build() {
-      this->Clear();
-
-      have_built_ = true;
-    }
-
-    void Clear() {
-      index2key_.clear();
-      index2neighbor_.clear();
     }
 
     /*
@@ -70,16 +52,14 @@ class Index {
     }
     */
 
-    void Search(const PointType& query, std::vector<KeyType>& search_result) {
-      // Init some points, search from these points
-    }
+    virtual void Build() {} 
 
-  private:
-    std::vector<KeyType> index2key_;
-    std::vector<IndexNode<DistanceType> > index2neighbor_;
+    virtual void Clear() {} 
 
+    virtual void Search(const PointType& query, int k, std::vector<KeyType>& search_result) = 0; 
+
+  protected:
     IndexDatasetPtr dataset_ptr_;
-    util::IndexParameter index_param_;
 
     // whether have built index
     bool have_built_;

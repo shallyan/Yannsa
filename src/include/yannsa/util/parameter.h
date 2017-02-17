@@ -4,7 +4,7 @@
 namespace yannsa {
 namespace util {
 
-struct IndexParameter {
+struct GraphIndexParameter {
   int neighbor_num;
 };
 
