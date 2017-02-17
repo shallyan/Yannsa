@@ -19,6 +19,10 @@ struct KeyPointPair {
 template <typename KeyType, typename PointType>
 class Dataset {
   public:
+    typedef KeyPointPair<KeyType, PointType> DataKeyPointPair;
+    typedef typename std::vector<DataKeyPointPair>::iterator DataIterator;
+
+  public:
     void AddPoint(const KeyType& key, const PointType& new_point) {
       if (key2index_.find(key) != key2index_.end()) {
         throw DataKeyExistError("Key already exists in dataset!");
@@ -44,8 +48,16 @@ class Dataset {
       key2index_.clear();
       index2point_.clear();
     }
+
+    inline DataIterator Begin() {
+      return index2point_.begin();
+    }
+
+    inline DataIterator End() {
+      return index2point_.end();
+    }
+
   private:
-    typedef KeyPointPair<KeyType, PointType> DataKeyPointPair;
     // key to index, for fast look up
     // index to point, for fast traverse
     // 2-layer storage can be used to rearrange dataset for cache efficiency

@@ -39,3 +39,27 @@ TEST(DatasetTest, DatasetIndexOf) {
 
   ASSERT_THROW(dataset.IndexOf("point_x"), DataKeyNotExistError); 
 }
+
+TEST(DatasetTest, DatasetIterator) {
+  PointVector<int> point_a(3);
+  point_a << 1, 2, 3;
+
+  PointVector<int> point_b(3);
+  point_b << 2, 3, 4;
+
+  typedef Dataset<string, PointVector<int> > DatasetType;
+  DatasetType dataset;
+  dataset.AddPoint("point_a", point_a); 
+  dataset.AddPoint("point_b", point_b); 
+
+  DatasetType::DataIterator iter = dataset.Begin();
+  ASSERT_EQ(iter->key, "point_a");
+  ASSERT_EQ(iter->point[0], 1);
+
+  iter++;
+  ASSERT_EQ(iter->key, "point_b");
+  ASSERT_EQ(iter->point[0], 2);
+
+  iter++;
+  ASSERT_EQ(iter, dataset.End());
+}
