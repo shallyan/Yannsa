@@ -34,4 +34,6 @@
 build_test/*
 yannsa_test
 
+count.sh
+
 *.swp
