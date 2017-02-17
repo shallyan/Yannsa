@@ -5,7 +5,6 @@
 #include "yannsa/core/dataset.h"
 #include "yannsa/util/heap.h"
 #include "yannsa/util/parameter.h"
-#include "yannsa/util/distance.h"
 #include <vector>
 #include <memory>
 
@@ -36,11 +35,16 @@ class Index {
   public:
     typedef std::shared_ptr<Dataset<KeyType, PointType> > IndexDatasetPtr; 
     typedef Dataset<KeyType, PointType> IndexDataset; 
+    typedef PointType IndexPoint;
 
   public:
     // parameters
     Index(IndexDatasetPtr& dataset_ptr, const util::IndexParameter& index_param) : 
           dataset_ptr_(dataset_ptr), index_param_(index_param), have_built_(false) {}
+
+    inline bool HaveBuilt() {
+      return have_built_;
+    }
 
     void Build() {
 
@@ -79,12 +83,6 @@ class Index {
     // whether have built index
     bool have_built_;
 };
-
-template <typename CoordinateType>
-using CosineIndex = Index<int, 
-                          util::PointVector<CoordinateType>, 
-                          util::CosineDistance<CoordinateType>, 
-                          CoordinateType>;
 
 } // namespace core 
 } // namespace yannsa

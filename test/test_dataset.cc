@@ -1,4 +1,5 @@
-#include "yannsa/util/distance.h"
+#include "yannsa/wrapper/distance_helper.h"
+#include "yannsa/util/point_vector.h"
 #include "yannsa/base/error_definition.h"
 #include "yannsa/core/dataset.h"
 #include <gtest/gtest.h>
@@ -7,6 +8,7 @@
 using namespace std;
 using namespace yannsa;
 using namespace yannsa::util;
+using namespace yannsa::wrapper;
 using namespace yannsa::core;
 
 TEST(DatasetTest, DatasetAddPoint) {
