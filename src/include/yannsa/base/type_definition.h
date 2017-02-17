@@ -3,7 +3,7 @@
 
 namespace yannsa {
 
-typedef int IndexType;
+typedef int IntIndex;
 
 } // namespace yannsa
 

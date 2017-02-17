@@ -3,31 +3,36 @@
 
 #include "yannsa/base/error_definition.h"
 #include "yannsa/base/type_definition.h"
-#include <map>
+#include <unordered_map>
 #include <vector>
 
 namespace yannsa {
 namespace core {
 
 template <typename KeyType, typename PointType>
+struct KeyPointPair {
+  KeyType key;
+  PointType point;
+  KeyPointPair(KeyType k, PointType p) : key(k), point(p) {}
+};
+
+template <typename KeyType, typename PointType>
 class Dataset {
-  // rearrange dataset for cache efficiency
   public:
     void AddPoint(const KeyType& key, const PointType& new_point) {
       if (key2index_.find(key) != key2index_.end()) {
-        // key exist
         throw DataKeyExistError("Key already exists in dataset!");
       }
 
       key2index_[key] = index2point_.size();
-      index2point_.push_back(new_point);
+      index2point_.push_back(DataKeyPointPair(key, new_point));
     }
 
     inline size_t Size() const {
       return index2point_.size();
     }
 
-    inline IndexType IndexOf(const KeyType& key) {
+    inline IntIndex IndexOf(const KeyType& key) {
       auto point_iter = key2index_.find(key);
       if (point_iter == key2index_.end()) {
         throw DataKeyNotExistError("Key does not exist in dataset!");
@@ -40,10 +45,12 @@ class Dataset {
       index2point_.clear();
     }
   private:
-    // key to index
-    std::map<KeyType, IndexType> key2index_;
-    // index to point 
-    std::vector<PointType> index2point_;
+    typedef KeyPointPair<KeyType, PointType> DataKeyPointPair;
+    // key to index, for fast look up
+    // index to point, for fast traverse
+    // 2-layer storage can be used to rearrange dataset for cache efficiency
+    std::unordered_map<KeyType, IntIndex> key2index_;
+    std::vector<DataKeyPointPair> index2point_;
 };
 
 } // namespace core 

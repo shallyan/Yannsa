@@ -13,10 +13,10 @@ namespace core {
 
 template <typename DistanceType>
 struct PointDistancePair {
-  IndexType point_index;
+  IntIndex point_index;
   DistanceType distance;
 
-  PointDistancePair(IndexType point, DistanceType dist) : 
+  PointDistancePair(IntIndex point, DistanceType dist) : 
                     point_index(point), distance(dist) {}
   inline bool operator<(const PointDistancePair& point_distance_pair) const {
     return distance < point_distance_pair.distance;
@@ -33,8 +33,8 @@ template <typename KeyType, typename PointType,
           typename DistanceFuncType, typename DistanceType = float>
 class Index {
   public:
-    typedef std::shared_ptr<Dataset<KeyType, PointType> > IndexDatasetPtr; 
     typedef Dataset<KeyType, PointType> IndexDataset; 
+    typedef std::shared_ptr<IndexDataset> IndexDatasetPtr; 
     typedef PointType IndexPoint;
 
   public:
@@ -47,6 +47,7 @@ class Index {
     }
 
     void Build() {
+      this->Clear();
 
       have_built_ = true;
     }
@@ -62,7 +63,7 @@ class Index {
       dataset.AddPoint(key, new_point);
 
       // add data to knn index
-      IndexType point_index = index2key_.size();
+      IntIndex point_index = index2key_.size();
       index2key_.push_back(key);
       index2neighbor_.push_back(IndexNode(neighbor_num_));
       this->UpdateIndex(point_index);
