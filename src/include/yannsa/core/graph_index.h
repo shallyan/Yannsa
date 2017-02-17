@@ -7,16 +7,16 @@
 #include "yannsa/util/heap.h"
 #include "yannsa/util/parameter.h"
 #include <vector>
+#include <string>
 #include <memory>
 
 namespace yannsa {
 namespace core {
 
-template <typename KeyType, typename PointType,
-          typename DistanceFuncType, typename DistanceType = float>
-class GraphIndex : public BaseIndex<KeyType, PointType, DistanceFuncType, DistanceType> {
+template <typename PointType, typename DistanceFuncType, typename DistanceType = float>
+class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
   public:
-    typedef BaseIndex<KeyType, PointType, DistanceFuncType, DistanceType> BaseClass;
+    typedef BaseIndex<PointType, DistanceFuncType, DistanceType> BaseClass;
     typedef typename BaseClass::IndexDataset IndexDataset;
     typedef typename BaseClass::IndexDatasetPtr IndexDatasetPtr;
     typedef typename BaseClass::IndexDataset::DataIterator DataIterator;
@@ -41,7 +41,7 @@ class GraphIndex : public BaseIndex<KeyType, PointType, DistanceFuncType, Distan
       index2neighbor_.clear();
     }
 
-    void Search(const PointType& query, int k, std::vector<KeyType>& search_result) {
+    void Search(const PointType& query, int k, std::vector<std::string>& search_result) {
       // Init some points, search from these points
     }
 
@@ -49,11 +49,11 @@ class GraphIndex : public BaseIndex<KeyType, PointType, DistanceFuncType, Distan
   private:
     struct IndexNode {
       IndexNode(int neighbor_num) : nearest_neighbor(neighbor_num) {}
-      util::Heap<PointDistancePair<IntIndex, DistanceType> > nearest_neighbor;
+      util::Heap<PointDistancePair<std::string, DistanceType> > nearest_neighbor;
     };
 
   private:
-    std::vector<KeyType> index2key_;
+    std::vector<std::string> index2key_;
     std::vector<IndexNode> index2neighbor_;
 };
 

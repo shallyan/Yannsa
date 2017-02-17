@@ -23,11 +23,10 @@ struct PointDistancePair {
   }
 };
 
-template <typename KeyType, typename PointType,
-          typename DistanceFuncType, typename DistanceType = float>
+template <typename PointType, typename DistanceFuncType, typename DistanceType = float>
 class BaseIndex {
   public:
-    typedef Dataset<KeyType, PointType> IndexDataset; 
+    typedef Dataset<PointType> IndexDataset; 
     typedef std::shared_ptr<IndexDataset> IndexDatasetPtr; 
 
   public:
@@ -40,7 +39,7 @@ class BaseIndex {
     }
 
     /*
-    void AddPoint(const KeyType& key, const PointType& new_point) {
+    void AddPoint(const std::string& key, const PointType& new_point) {
       // add data to dataset
       dataset.AddPoint(key, new_point);
 
@@ -56,7 +55,7 @@ class BaseIndex {
 
     virtual void Clear() {} 
 
-    virtual void Search(const PointType& query, int k, std::vector<KeyType>& search_result) = 0; 
+    virtual void Search(const PointType& query, int k, std::vector<std::string>& search_result) = 0; 
 
   protected:
     IndexDatasetPtr dataset_ptr_;

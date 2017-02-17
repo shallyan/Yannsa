@@ -10,8 +10,7 @@ namespace yannsa {
 namespace wrapper {
 
 template <typename CoordinateType>
-using CosineGraphIndex = core::GraphIndex<std::string, 
-                                          util::PointVector<CoordinateType>, 
+using CosineGraphIndex = core::GraphIndex<util::PointVector<CoordinateType>, 
                                           CosineDistance<CoordinateType>, 
                                           CoordinateType>;
 
@@ -19,8 +18,7 @@ template <typename CoordinateType>
 using CosineGraphIndexPtr = std::shared_ptr<CosineGraphIndex<CoordinateType> >;
 
 template <typename CoordinateType>
-using CosineBruteForceIndex = core::BruteForceIndex<std::string, 
-                                                    util::PointVector<CoordinateType>, 
+using CosineBruteForceIndex = core::BruteForceIndex<util::PointVector<CoordinateType>, 
                                                     CosineDistance<CoordinateType>, 
                                                     CoordinateType>;
 
