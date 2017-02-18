@@ -1,7 +1,7 @@
 #ifndef YANNSA_DISTANCE_HELPER_H
 #define YANNSA_DISTANCE_HELPER_H
 
-#include "yannsa/util/point_vector.h"
+#include "yannsa/wrapper/representation.h"
 
 namespace yannsa {
 namespace wrapper {
@@ -10,8 +10,8 @@ namespace wrapper {
 template <typename DistanceType>
 struct DotDistance {
   template <typename CoordinateType>
-  DistanceType operator()(const util::PointVector<CoordinateType>& point_a, 
-                          const util::PointVector<CoordinateType>& point_b) {
+  DistanceType operator()(const PointVector<CoordinateType>& point_a, 
+                          const PointVector<CoordinateType>& point_b) {
     return -point_a.dot(point_b);
   }
 };
@@ -20,8 +20,8 @@ struct DotDistance {
 template <typename DistanceType>
 struct CosineDistance {
   template <typename CoordinateType>
-  DistanceType operator()(const util::PointVector<CoordinateType>& point_a, 
-                          const util::PointVector<CoordinateType>& point_b) {
+  DistanceType operator()(const PointVector<CoordinateType>& point_a, 
+                          const PointVector<CoordinateType>& point_b) {
     auto normalized_point_a = point_a.normalized();
     auto normalized_point_b = point_b.normalized();
     return -normalized_point_a.dot(normalized_point_b);
@@ -32,8 +32,8 @@ struct CosineDistance {
 template <typename DistanceType>
 struct EuclideanDistance {
   template <typename CoordinateType>
-  DistanceType operator()(const util::PointVector<CoordinateType>& point_a, 
-                          const util::PointVector<CoordinateType>& point_b) {
+  DistanceType operator()(const PointVector<CoordinateType>& point_a, 
+                          const PointVector<CoordinateType>& point_b) {
     return (point_a - point_b).norm();
   }
 };

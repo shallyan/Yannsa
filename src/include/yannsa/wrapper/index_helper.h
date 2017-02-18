@@ -1,8 +1,8 @@
 #ifndef YANNSA_INDEX_HELPER_H
 #define YANNSA_INDEX_HELPER_H
 
-#include "yannsa/util/point_vector.h"
 #include "yannsa/core/graph_index.h"
+#include "yannsa/wrapper/representation.h"
 #include "yannsa/wrapper/distance_helper.h"
 #include "yannsa/util/container.h"
 #include <string>
@@ -11,7 +11,7 @@ namespace yannsa {
 namespace wrapper {
 
 template <typename CoordinateType>
-using CosineGraphIndex = core::GraphIndex<util::PointVector<CoordinateType>, 
+using CosineGraphIndex = core::GraphIndex<PointVector<CoordinateType>, 
                                           CosineDistance<CoordinateType>, 
                                           CoordinateType>;
 
@@ -19,7 +19,7 @@ template <typename CoordinateType>
 using CosineGraphIndexPtr = std::shared_ptr<CosineGraphIndex<CoordinateType> >;
 
 template <typename CoordinateType>
-using CosineBruteForceIndex = core::BruteForceIndex<util::PointVector<CoordinateType>, 
+using CosineBruteForceIndex = core::BruteForceIndex<PointVector<CoordinateType>, 
                                                     CosineDistance<CoordinateType>, 
                                                     CoordinateType>;
 

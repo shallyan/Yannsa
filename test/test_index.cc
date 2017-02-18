@@ -66,3 +66,37 @@ TEST(IndexTest, BruteForceIndexSearch) {
   ASSERT_GE(result[1], "d");
   ASSERT_GE(result[2], "d");
 }
+
+TEST(IndexTest, BruteForceIndexSearchWithWrapperRep) {
+  DatasetPtr<float> dataset_ptr(new Dataset<float>()); 
+
+  PointVector<float> point_a(3);
+  point_a << 0.1, 0.2, 0.3;
+  PointVector<float> point_b(3);
+  point_b << 0.0, 0.1, 0.2;
+  PointVector<float> point_c(3);
+  point_c << 0.11, 0.2, 0.3;
+  PointVector<float> point_d(3);
+  point_d << 0.9, 0.1, 0.2;
+
+  dataset_ptr->AddPoint("a", point_a);
+  dataset_ptr->AddPoint("b", point_b);
+  dataset_ptr->AddPoint("c", point_c);
+  dataset_ptr->AddPoint("d", point_d);
+  dataset_ptr->AddPoint("e", point_d);
+  dataset_ptr->AddPoint("f", point_d);
+  dataset_ptr->AddPoint("g", point_d);
+  ASSERT_EQ(dataset_ptr->Size(), 7);
+
+  CosineBruteForceIndex<float> index(dataset_ptr);
+  vector<string> result;
+  index.Search(point_a, 3, result);
+  ASSERT_EQ(result[0], "a");
+  ASSERT_EQ(result[1], "c");
+  ASSERT_EQ(result[2], "b");
+
+  index.Search(point_d, 3, result);
+  ASSERT_GE(result[0], "d");
+  ASSERT_GE(result[1], "d");
+  ASSERT_GE(result[2], "d");
+}

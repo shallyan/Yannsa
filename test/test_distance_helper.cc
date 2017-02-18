@@ -1,11 +1,9 @@
 #include "yannsa/wrapper/distance_helper.h"
-#include "yannsa/util/point_vector.h"
 #include <gtest/gtest.h>
 #include <string>
 
 using namespace std;
 using namespace yannsa;
-using namespace yannsa::util;
 using namespace yannsa::wrapper;
 
 const float precision = 0.000001;

@@ -1,5 +1,4 @@
 #include "yannsa/wrapper/distance_helper.h"
-#include "yannsa/util/point_vector.h"
 #include "yannsa/base/error_definition.h"
 #include "yannsa/util/container.h"
 #include <gtest/gtest.h>
@@ -8,6 +7,7 @@
 using namespace std;
 using namespace yannsa;
 using namespace yannsa::util;
+using namespace yannsa::wrapper;
 
 TEST(ContainerTest, AddPoint) {
   PointVector<float> point_a(3);
