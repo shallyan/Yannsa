@@ -56,12 +56,12 @@ TEST(IndexTest, BruteForceIndexSearch) {
 
   CosineBruteForceIndex<float> index(dataset_ptr);
   vector<string> result;
-  index.Search(point_a, 3, result);
+  index.SearchKnn(point_a, 3, result);
   ASSERT_EQ(result[0], "a");
   ASSERT_EQ(result[1], "c");
   ASSERT_EQ(result[2], "b");
 
-  index.Search(point_d, 3, result);
+  index.SearchKnn(point_d, 3, result);
   ASSERT_GE(result[0], "d");
   ASSERT_GE(result[1], "d");
   ASSERT_GE(result[2], "d");
@@ -90,12 +90,12 @@ TEST(IndexTest, BruteForceIndexSearchWithWrapperRep) {
 
   CosineBruteForceIndex<float> index(dataset_ptr);
   vector<string> result;
-  index.Search(point_a, 3, result);
+  index.SearchKnn(point_a, 3, result);
   ASSERT_EQ(result[0], "a");
   ASSERT_EQ(result[1], "c");
   ASSERT_EQ(result[2], "b");
 
-  index.Search(point_d, 3, result);
+  index.SearchKnn(point_d, 3, result);
   ASSERT_GE(result[0], "d");
   ASSERT_GE(result[1], "d");
   ASSERT_GE(result[2], "d");

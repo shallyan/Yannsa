@@ -39,7 +39,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
       index2neighbor_.clear();
     }
 
-    void Search(const PointType& query, int k, std::vector<std::string>& search_result) {
+    void SearchKnn(const PointType& query, int k, std::vector<std::string>& search_result) {
       // Init some points, search from these points
     }
 
