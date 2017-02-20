@@ -5,6 +5,8 @@ namespace yannsa {
 
 typedef int IntIndex;
 
+typedef int BinCode;
+
 } // namespace yannsa
 
 #endif

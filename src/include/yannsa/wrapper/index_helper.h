@@ -3,7 +3,7 @@
 
 #include "yannsa/core/graph_index.h"
 #include "yannsa/wrapper/representation.h"
-#include "yannsa/wrapper/distance_helper.h"
+#include "yannsa/wrapper/distance.h"
 #include "yannsa/util/container.h"
 #include <string>
 

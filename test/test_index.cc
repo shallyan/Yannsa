@@ -1,7 +1,7 @@
 #include "yannsa/core/base_index.h"
 #include "yannsa/core/graph_index.h"
 #include "yannsa/core/brute_force_index.h"
-#include "yannsa/wrapper/distance_helper.h"
+#include "yannsa/wrapper/distance.h"
 #include "yannsa/wrapper/index_helper.h"
 #include "yannsa/util/parameter.h"
 #include <gtest/gtest.h>

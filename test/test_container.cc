@@ -1,4 +1,4 @@
-#include "yannsa/wrapper/distance_helper.h"
+#include "yannsa/wrapper/distance.h"
 #include "yannsa/base/error_definition.h"
 #include "yannsa/util/container.h"
 #include <gtest/gtest.h>

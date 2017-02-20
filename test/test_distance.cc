@@ -1,4 +1,4 @@
-#include "yannsa/wrapper/distance_helper.h"
+#include "yannsa/wrapper/distance.h"
 #include <gtest/gtest.h>
 #include <string>
 
