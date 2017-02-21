@@ -26,7 +26,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
   public:
     GraphIndex(typename BaseClass::DatasetPtr& dataset_ptr) : BaseClass(dataset_ptr) {}
 
-    void Build(const util::GraphIndexParameter& index_param, const util::BaseCoder<PointType>& coder) {
+    void Build(const util::GraphIndexParameter& index_param, util::BaseCoder<PointType>& coder) {
       Clear();
 
       std::map<IntCode, std::vector<IntIndex> > buckets; 
@@ -46,7 +46,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
         iter++;
       }
       
-      std::map<IntCode, std::vector<IntIndex> >::iterator it; 
+      std::map<IntCode, std::vector<IntIndex> >::iterator it = buckets.begin(); 
       for(; it != buckets.end(); it++) {
         std::cout << it->first << " : " << it->second.size() << std::endl;
       }
@@ -60,6 +60,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     }
 
     void SearchKnn(const PointType& query, int k, std::vector<std::string>& search_result) {
+      search_result.clear();
       // Init some points, search from these points
     }
 

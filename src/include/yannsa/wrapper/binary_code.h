@@ -4,6 +4,7 @@
 #include "yannsa/wrapper/representation.h"
 #include "yannsa/util/code.h"
 #include <random>
+#include <iostream>
 
 namespace yannsa {
 namespace wrapper {
@@ -40,7 +41,7 @@ class BinaryCoder : public util::BaseCoder<PointType> {
       }
     }
 
-    IntCode Code(PointVector<CoordinateType>& point) {
+    IntCode Code(const PointType& point) {
       auto hash_results = point.transpose() * hash_func_set_;
       IntCode code_result = 0;
 

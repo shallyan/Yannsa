@@ -11,9 +11,7 @@ class BaseCoder {
   public:
     BaseCoder(int code_length) : code_length_(code_length) {}
 
-    virtual IntCode Code(const PointType& point) {
-      return 0;
-    }
+    virtual IntCode Code(const PointType& point) = 0; 
 
   protected:
     int code_length_;
