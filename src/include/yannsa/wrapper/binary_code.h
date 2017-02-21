@@ -2,7 +2,7 @@
 #define YANNSA_BINARY_CODE_H 
 
 #include "yannsa/wrapper/representation.h"
-#include "yannsa/base/type_definition.h"
+#include "yannsa/util/code.h"
 #include <random>
 
 namespace yannsa {
@@ -27,10 +27,11 @@ class RealRandomGenerator {
     std::mt19937 random_generator_;
 };
 
-template <typename CoordinateType>
-class BinaryCoder {
+template <typename PointType, typename CoordinateType>
+class BinaryCoder : public util::BaseCoder<PointType, CoordinateType> {
   public:
-    BinaryCoder(int point_dim, int code_length) : code_length_(code_length), hash_func_set_(point_dim, code_length) {
+    BinaryCoder(int point_dim, int code_length) 
+        : util::BaseCoder<PointType, CoordinateType>(code_length), hash_func_set_(point_dim, code_length) {
       RealRandomGenerator<CoordinateType> random_generator(-1.0, 1.0);
       for (int col = 0; col < code_length; col++) {
         for (int row = 0; row < point_dim; row++) {
@@ -39,13 +40,13 @@ class BinaryCoder {
       }
     }
 
-    BinCode Code(PointVector<CoordinateType>& point) {
+    IntCode Code(PointVector<CoordinateType>& point) {
       auto hash_results = point.transpose() * hash_func_set_;
-      BinCode code_result = 0;
+      IntCode code_result = 0;
 
-      for (int col = 0; col < code_length_; col++) {
+      for (int col = 0; col < this->code_length_; col++) {
         CoordinateType one_hash_result = hash_results(0, col);
-        BinCode hash_binary = one_hash_result > 0.0 ? 1 : 0; 
+        IntCode hash_binary = one_hash_result > 0.0 ? 1 : 0; 
         code_result = (code_result << 1) + hash_binary; 
       }
 
@@ -54,7 +55,6 @@ class BinaryCoder {
 
   private:
     HashHyperplane<CoordinateType> hash_func_set_;
-    int code_length_;
 };
 
 } // namespace wrapper 

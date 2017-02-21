@@ -17,10 +17,10 @@ TEST(BinaryCodeTest, RandomGenerator) {
 }
 
 TEST(BinaryCodeTest, BinaryCoder) {
-  BinaryCoder<float> bin_coder(2, 2);
+  BinaryCoder<PointVector<float>, float> bin_coder(2, 2);
   PointVector<float> point(2);
   point << 1.0, 1.0;
-  BinCode code = bin_coder.Code(point);
+  IntCode code = bin_coder.Code(point);
   ASSERT_TRUE(code >= 0);
   ASSERT_TRUE(code <= 3);
 }
