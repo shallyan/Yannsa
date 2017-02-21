@@ -5,6 +5,7 @@ LD_FLAGS=-pthread
 YANNSA_INC=src/include/
 THIRD_PARTY_INC=third_party/
 
+# test
 GTEST_PATH=/usr/local
 GTEST_LIB=$(GTEST_PATH)/lib/
 GTEST_INC=$(GTEST_PATH)/include/
@@ -17,7 +18,7 @@ UNIT_TEST_OBJ_ROOT=build_$(UNIT_TEST_ROOT)
 UNIT_TEST_SRC=$(wildcard $(UNIT_TEST_ROOT)/*.cc)
 UNIT_TEST_OBJ=$(patsubst $(UNIT_TEST_ROOT)/%.cc, $(UNIT_TEST_OBJ_ROOT)/%.o, $(UNIT_TEST_SRC))
 
-#$(warning $(UNIT_TEST_OBJ))
+# $(warning $(UNIT_TEST_OBJ))
 
 $(UNIT_TEST_OBJ_ROOT)/%.o: $(UNIT_TEST_ROOT)/%.cc
 	@mkdir -p $(@D)
@@ -25,3 +26,10 @@ $(UNIT_TEST_OBJ_ROOT)/%.o: $(UNIT_TEST_ROOT)/%.cc
 
 $(UNIT_TEST_TARGET): $(UNIT_TEST_OBJ) 
 	$(CXX) $(UNIT_TEST_FLAGS) -o $@ $^ $(UNIT_TEST_LD_FLAGS)
+
+# example
+EXAMPLE_FLAGS=$(CXX_FLAGS)
+EXAMPLE_ROOT=example
+
+similar_word_example: $(EXAMPLE_ROOT)/similar_word_example.cc
+	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^

@@ -5,9 +5,12 @@
 #include "yannsa/core/base_index.h"
 #include "yannsa/util/heap.h"
 #include "yannsa/util/parameter.h"
+#include "yannsa/util/code.h"
 #include <vector>
+#include <map>
 #include <string>
 #include <memory>
+#include <iostream>
 
 namespace yannsa {
 namespace core {
@@ -23,14 +26,31 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
   public:
     GraphIndex(typename BaseClass::DatasetPtr& dataset_ptr) : BaseClass(dataset_ptr) {}
 
-    void Build(const util::GraphIndexParameter& index_param) {
+    void Build(const util::GraphIndexParameter& index_param, const util::BaseCoder<PointType>& coder) {
       Clear();
 
+      std::map<IntCode, std::vector<IntIndex> > buckets; 
       typename Dataset::Iterator iter = this->dataset_ptr_->Begin();
       while (iter != this->dataset_ptr_->End()) {
+        std::string& key = iter->first;
+        PointType& point = iter->second;
+
+        // record point key and index
+        IntIndex point_index = index2key_.size();
+        index2key_.push_back(key);
+
+        // encode point
+        IntCode point_code = coder.Code(point);
+        buckets[point_code].push_back(point_index);
+
         iter++;
       }
-        
+      
+      std::map<IntCode, std::vector<IntIndex> >::iterator it; 
+      for(; it != buckets.end(); it++) {
+        std::cout << it->first << " : " << it->second.size() << std::endl;
+      }
+
       this->have_built_ = true;
     }
 

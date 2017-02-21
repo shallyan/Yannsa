@@ -33,6 +33,7 @@
 
 build_test/*
 yannsa_test
+similar_word_example
 
 count.sh
 

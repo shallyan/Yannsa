@@ -6,7 +6,7 @@
 namespace yannsa {
 namespace util {
 
-template <typename PointType, typename CoordinateType>
+template <typename PointType>
 class BaseCoder {
   public:
     BaseCoder(int code_length) : code_length_(code_length) {}

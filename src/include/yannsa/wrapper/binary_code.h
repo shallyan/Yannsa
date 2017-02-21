@@ -28,10 +28,10 @@ class RealRandomGenerator {
 };
 
 template <typename PointType, typename CoordinateType>
-class BinaryCoder : public util::BaseCoder<PointType, CoordinateType> {
+class BinaryCoder : public util::BaseCoder<PointType> {
   public:
     BinaryCoder(int point_dim, int code_length) 
-        : util::BaseCoder<PointType, CoordinateType>(code_length), hash_func_set_(point_dim, code_length) {
+        : util::BaseCoder<PointType>(code_length), hash_func_set_(point_dim, code_length) {
       RealRandomGenerator<CoordinateType> random_generator(-1.0, 1.0);
       for (int col = 0; col < code_length; col++) {
         for (int row = 0; row < point_dim; row++) {
