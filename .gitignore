@@ -36,5 +36,8 @@ yannsa_test
 similar_word_example
 
 count.sh
+word_sim.sh
+
+data/*
 
 *.swp
