@@ -10,7 +10,8 @@ namespace util {
 template <typename PointType>
 class Heap {
   public:
-    Heap(int max_size = 5) {
+    Heap(int max_size = 0) {
+      // 0 means no max size
       max_size_ = max_size;
       heap_.reserve(max_size_);
     }
@@ -33,7 +34,7 @@ class Heap {
 
     void Insert(const PointType& new_point) {
       size_t cur_size = Size();
-      if (cur_size < max_size_) {
+      if (max_size_ == 0 || cur_size < max_size_) {
         Push(new_point);
       }
       else if (cur_size > 0) {

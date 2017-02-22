@@ -66,9 +66,9 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
                               Bucket2Point& bucket2point, 
                               BucketKnnGraph& bucket_knn_graph); 
 
-    void ConstructBucketsKnnGraph(const util::GraphIndexParameter& index_param, 
-                                  Bucket2Point& bucket2point,
-                                  BucketKnnGraph& bucket_knn_graph); 
+    void BuildBucketsKnnGraph(const util::GraphIndexParameter& index_param, 
+                              Bucket2Point& bucket2point,
+                              BucketKnnGraph& bucket_knn_graph); 
 
   private:
     struct IndexNode {
@@ -93,11 +93,12 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   
   // construct bucket knn graph
   BucketKnnGraph bucket_knn_graph;
-  ConstructBucketsKnnGraph(index_param, bucket2point, bucket_knn_graph);
+  BuildBucketsKnnGraph(index_param, bucket2point, bucket_knn_graph);
 
   // split and merge buckets
   SplitAndMergeBuckets(index_param, bucket2point, bucket_knn_graph);
 
+  // build
   this->have_built_ = true;
 }
 
@@ -232,7 +233,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SplitAndMergeBuckets
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConstructBucketsKnnGraph(
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildBucketsKnnGraph(
     const util::GraphIndexParameter& index_param, 
     Bucket2Point& bucket2point,
     BucketKnnGraph& bucket_knn_graph) {
