@@ -1,7 +1,7 @@
 #include "yannsa/util/parameter.h"
 #include "yannsa/wrapper/distance.h"
 #include "yannsa/wrapper/index_helper.h"
-#include "yannsa/wrapper/binary_code.h"
+#include "yannsa/wrapper/binary_encoder.h"
 #include <iostream>
 #include <fstream>
 #include <set>
@@ -77,8 +77,12 @@ int main() {
   CosineBruteForceIndexPtr<float> truth_index_ptr(new CosineBruteForceIndex<float>(dataset_ptr));
   CosineGraphIndexPtr<float> graph_index_ptr(new CosineGraphIndex<float>(dataset_ptr));
   util::GraphIndexParameter param;
-  BinaryCoder<PointVector<float>, float> binary_coder(point_dim, 10);
-  graph_index_ptr->Build(param, binary_coder);
+  param.point_neighbor_num = 5;
+  param.bucket_neighbor_num = 10;
+  param.min_bucket_size = 50;
+  param.max_bucket_size = 200;
+  BinaryEncoder<PointVector<float>, float> binary_encoder(point_dim, 10);
+  graph_index_ptr->Build(param, binary_encoder);
 
   vector<string> actual_result;
   vector<string> graph_result;
@@ -108,7 +112,7 @@ int main() {
     result_intersection.clear();
     set_intersection(actual_result.begin(), actual_result.end(), 
                      graph_result.begin(), graph_result.end(), 
-                     result_intersection.begin());
+                     back_inserter(result_intersection));
     int cur_hit_count = result_intersection.size();
     hit_count += cur_hit_count;
     cout << "precision: " << cur_hit_count * 1.0 / k << endl << endl;

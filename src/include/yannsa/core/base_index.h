@@ -13,11 +13,11 @@ namespace core {
 
 template <typename IndexType, typename DistanceType>
 struct PointDistancePair {
-  IndexType point_index;
+  IndexType id;
   DistanceType distance;
 
-  PointDistancePair(IndexType point, DistanceType dist) : 
-                    point_index(point), distance(dist) {}
+  PointDistancePair(IndexType point_id, DistanceType dist) : 
+                    id(point_id), distance(dist) {}
   inline bool operator<(const PointDistancePair& point_distance_pair) const {
     return distance < point_distance_pair.distance;
   }

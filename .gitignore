@@ -38,6 +38,8 @@ similar_word_example
 count.sh
 word_sim.sh
 
+nohup.out
+
 data/*
 
 *.swp

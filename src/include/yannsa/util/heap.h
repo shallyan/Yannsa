@@ -10,7 +10,7 @@ namespace util {
 template <typename PointType>
 class Heap {
   public:
-    Heap(int max_size) {
+    Heap(int max_size = 5) {
       max_size_ = max_size;
       heap_.reserve(max_size_);
     }

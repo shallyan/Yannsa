@@ -2,7 +2,7 @@
 #define YANNSA_BINARY_CODE_H 
 
 #include "yannsa/wrapper/representation.h"
-#include "yannsa/util/code.h"
+#include "yannsa/util/base_encoder.h"
 #include <random>
 #include <iostream>
 
@@ -10,7 +10,7 @@ namespace yannsa {
 namespace wrapper {
 
 template <typename CoordinateType>
-using HashHyperplane = Eigen::Matrix<CoordinateType, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>;
+using Hyperplane = Eigen::Matrix<CoordinateType, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>;
 
 template <typename CoordinateType>
 class RealRandomGenerator {
@@ -29,10 +29,10 @@ class RealRandomGenerator {
 };
 
 template <typename PointType, typename CoordinateType>
-class BinaryCoder : public util::BaseCoder<PointType> {
+class BinaryEncoder : public util::BaseEncoder<PointType> {
   public:
-    BinaryCoder(int point_dim, int code_length) 
-        : util::BaseCoder<PointType>(code_length), hash_func_set_(point_dim, code_length) {
+    BinaryEncoder(int point_dim, int code_length) 
+        : util::BaseEncoder<PointType>(code_length), hash_func_set_(point_dim, code_length) {
       RealRandomGenerator<CoordinateType> random_generator(-1.0, 1.0);
       for (int col = 0; col < code_length; col++) {
         for (int row = 0; row < point_dim; row++) {
@@ -41,21 +41,21 @@ class BinaryCoder : public util::BaseCoder<PointType> {
       }
     }
 
-    IntCode Code(const PointType& point) {
+    IntCode Encode(const PointType& point) {
       auto hash_results = point.transpose() * hash_func_set_;
       IntCode code_result = 0;
 
       for (int col = 0; col < this->code_length_; col++) {
         CoordinateType one_hash_result = hash_results(0, col);
-        IntCode hash_binary = one_hash_result > 0.0 ? 1 : 0; 
-        code_result = (code_result << 1) + hash_binary; 
+        IntCode code_binary = one_hash_result > 0.0 ? 1 : 0; 
+        code_result = (code_result << 1) + code_binary; 
       }
 
       return code_result;
     }
 
   private:
-    HashHyperplane<CoordinateType> hash_func_set_;
+    Hyperplane<CoordinateType> hash_func_set_;
 };
 
 } // namespace wrapper 

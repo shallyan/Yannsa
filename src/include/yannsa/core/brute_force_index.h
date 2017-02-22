@@ -40,7 +40,7 @@ class BruteForceIndex : public BaseIndex<PointType, DistanceFuncType, DistanceTy
       k_candidates.Sort();
       auto candidate_content = k_candidates.GetContent();
       for (auto& candidate : candidate_content) {
-        search_result.push_back(candidate.point_index);
+        search_result.push_back(candidate.id);
       }
     }
 };

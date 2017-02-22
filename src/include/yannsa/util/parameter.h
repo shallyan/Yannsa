@@ -5,7 +5,10 @@ namespace yannsa {
 namespace util {
 
 struct GraphIndexParameter {
-  int neighbor_num;
+  int point_neighbor_num;
+  int bucket_neighbor_num;
+  int min_bucket_size;
+  int max_bucket_size;
 };
 
 } // namespace util
