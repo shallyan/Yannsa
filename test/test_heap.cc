@@ -24,13 +24,12 @@ TEST(HeapTest, Insert) {
   }
   ASSERT_EQ(h.Size(), 3);
 
-  vector<int>& content = h.GetContent();
-  ASSERT_EQ(content[0], 2);
+  Heap<int>::Iterator iter = h.Begin();
+  ASSERT_EQ(*iter, 2);
 
   h.Sort();
-  ASSERT_EQ(content[0], 1);
-  ASSERT_EQ(content[1], 2);
-  ASSERT_EQ(content[2], 2);
+  Heap<int>::Iterator iter2 = h.Begin();
+  ASSERT_EQ(*iter2, 1);
 }
 
 TEST(HeapTest, InsertObj) {
@@ -48,10 +47,12 @@ TEST(HeapTest, InsertObj) {
   h.Insert(Obj(3, "abc"));
   h.Insert(Obj(2, "def"));
 
-  vector<Obj>& content = h.GetContent();
-  ASSERT_EQ(content[0].num, 2);
-  ASSERT_EQ(content[0].str, "def");
+  Heap<Obj>::Iterator iter = h.Begin();
+  ASSERT_EQ(iter->num, 2);
+  ASSERT_EQ(iter->str, "def");
 
   h.Insert(Obj(5, "tbc"));
-  ASSERT_EQ(content[0].str, "tbc");
+  Heap<Obj>::Iterator iter2 = h.Begin();
+  ASSERT_EQ(iter2->str, "tbc");
 }
+

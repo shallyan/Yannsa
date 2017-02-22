@@ -164,19 +164,21 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::MergeBucket(
     std::unordered_set<IntCode>& merged_buckets) {
   if (bucket2point[cur_bucket].size() < min_bucket_size) {
     bucket_neighbor_dist.Sort();
-    for (auto neighbor : bucket_neighbor_dist.GetContent()) {
+    auto bucket_neighbor_iter = bucket_neighbor_dist.Begin();
+    for (; bucket_neighbor_iter != bucket_neighbor_dist.End(); bucket_neighbor_iter++) {
+      IntCode neighbor_id = bucket_neighbor_iter->id;
       // neighbor bucket has been merged
-      if (merged_buckets.find(neighbor.id) != merged_buckets.end()) {
+      if (merged_buckets.find(neighbor_id) != merged_buckets.end()) {
         continue;
       }
       
       // if not exceed split threshold
-      if (bucket2point[neighbor.id].size() + bucket2point[cur_bucket].size() 
+      if (bucket2point[neighbor_id].size() + bucket2point[cur_bucket].size() 
           <= max_bucket_size + min_bucket_size) {
         bucket2point[cur_bucket].insert(bucket2point[cur_bucket].end(),
-                                        bucket2point[neighbor.id].begin(),
-                                        bucket2point[neighbor.id].end());
-        merged_buckets.insert(neighbor.id);
+                                        bucket2point[neighbor_id].begin(),
+                                        bucket2point[neighbor_id].end());
+        merged_buckets.insert(neighbor_id);
       }
 
       // check

@@ -10,6 +10,9 @@ namespace util {
 template <typename PointType>
 class Heap {
   public:
+    typedef typename std::vector<PointType>::iterator Iterator;
+
+  public:
     Heap(int max_size = 0) {
       // 0 means no max size
       max_size_ = max_size;
@@ -20,8 +23,12 @@ class Heap {
       return heap_.size();
     }
 
-    inline std::vector<PointType>& GetContent() {
-      return heap_;
+    inline Iterator Begin() {
+      return heap_.begin();
+    }
+
+    inline Iterator End() {
+      return heap_.end();
     }
 
     inline void Sort() {
