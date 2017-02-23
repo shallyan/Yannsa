@@ -1,7 +1,7 @@
 #ifndef YANNSA_POINT_PAIR_DISTANCE_TABLE_H
 #define YANNSA_POINT_PAIR_DISTANCE_TABLE_H
 
-#include <unordered_map>
+#include <map>
 #include <utility>
 
 namespace yannsa {
@@ -39,7 +39,7 @@ class PointPairDistanceTable {
     }
 
   private:
-    std::unordered_map<TableKey, DistanceType> table;
+    std::map<TableKey, DistanceType> table;
 };
 
 } // namespace util

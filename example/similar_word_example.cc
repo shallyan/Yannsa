@@ -6,10 +6,17 @@
 #include <fstream>
 #include <set>
 #include <algorithm>
+#include <ctime>
 
 using namespace std;
 using namespace yannsa;
 using namespace yannsa::wrapper;
+
+void LogTime(const std::string& prompt) {
+  time_t now = time(0);
+  char* dt = ctime(&now);
+  cout << prompt << ": " << dt << endl;
+}
 
 int CreateDataset(const string& file_path,
                   DatasetPtr<float>& dataset_ptr, 
@@ -72,17 +79,23 @@ int main() {
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   DatasetPtr<float> querys_ptr(new Dataset<float>());
   //int point_dim = CreateDataset("data/word_rep_little", dataset_ptr, querys_ptr, query_ratio);
-  int point_dim = CreateDataset("data/word_rep", dataset_ptr, querys_ptr, query_ratio);
+  //int point_dim = CreateDataset("data/word_rep", dataset_ptr, querys_ptr, query_ratio);
+  LogTime("start read dataset");
+  int point_dim = CreateDataset("data/glove.twitter.27B.100d.txt", dataset_ptr, querys_ptr, query_ratio);
+  LogTime("end read dataset");
   
   CosineBruteForceIndexPtr<float> truth_index_ptr(new CosineBruteForceIndex<float>(dataset_ptr));
   CosineGraphIndexPtr<float> graph_index_ptr(new CosineGraphIndex<float>(dataset_ptr));
   util::GraphIndexParameter param;
-  param.point_neighbor_num = 5;
+  param.point_neighbor_num = 10;
   param.bucket_neighbor_num = 10;
-  param.min_bucket_size = 50;
-  param.max_bucket_size = 200;
+  param.min_bucket_size = 500;
+  param.max_bucket_size = 2000;
   BinaryEncoder<PointVector<float>, float> binary_encoder(point_dim, 10);
+
+  LogTime("start build index");
   graph_index_ptr->Build(param, binary_encoder);
+  LogTime("end build index");
 
   vector<string> actual_result;
   vector<string> graph_result;

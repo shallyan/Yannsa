@@ -15,6 +15,9 @@
 #include <iostream>
 #include <climits>
 
+#include <map>
+#include <algorithm>
+
 namespace yannsa {
 namespace core {
 
@@ -28,9 +31,12 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
   private:
     typedef std::unordered_map<IntCode, std::vector<IntIndex> > Bucket2Point; 
+    typedef std::shared_ptr<Bucket2Point> Bucket2PointPtr;
     typedef PointDistancePair<IntCode, IntCode> BucketDistancePairItem;
     typedef util::Heap<BucketDistancePairItem> BucketHeap;
     typedef std::unordered_map<IntCode, BucketHeap> BucketKnnGraph;
+    typedef std::shared_ptr<BucketKnnGraph> BucketKnnGraphPtr;
+    typedef std::vector<IntCode> BucketList;
 
     typedef PointDistancePair<IntIndex, DistanceType> PointDistancePairItem; 
     struct IndexNode {
@@ -54,33 +60,56 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
                    std::vector<std::string>& search_result); 
 
   private:
+    IntCode CalculateHammingDistance(IntCode x, IntCode y) {
+      IntCode hamming_dist = 0;
+      IntCode xor_result = x ^ y;
+      while (xor_result) {
+        xor_result &= xor_result-1;
+        hamming_dist++;
+      }
+      return hamming_dist;
+    }
+
     void Encode2Buckets(Bucket2Point& bucket2point, 
                         util::BaseEncoder<PointType>& encoder,
                         int point_neighbor_num); 
 
-    void SplitBucket(Bucket2Point& bucket2point, 
+    void SplitOneBucket(Bucket2Point& bucket2point, 
                      IntCode cur_bucket, 
                      int max_bucket_size, 
                      int min_bucket_size);
 
-    void MergeBucket(Bucket2Point& bucket2point,
-                     IntCode cur_bucket,
-                     int max_bucket_size,
-                     int min_bucket_size,
-                     BucketHeap& bucket_neighbor_dist,
-                     std::unordered_set<IntCode>& merged_buckets); 
+    void SplitBuckets(Bucket2Point& bucket2point, 
+                      int max_bucket_size,
+                      int min_bucket_size,
+                      BucketList& to_split_bucket_list); 
 
-    void SplitAndMergeBuckets(Bucket2Point& bucket2point, 
-                              int max_bucket_size,
-                              int min_bucket_size,
-                              BucketKnnGraph& bucket_knn_graph); 
+    void MergeOneBucket(Bucket2Point& bucket2point,
+                        IntCode cur_bucket,
+                        int max_bucket_size,
+                        int min_bucket_size,
+                        BucketHeap& bucket_neighbor_dist,
+                        std::unordered_set<IntCode>& merged_buckets); 
 
-    void BuildBucketsKnnGraph(Bucket2Point& bucket2point,
+    void MergeBuckets(Bucket2Point& bucket2point, 
+                      int max_bucket_size,
+                      int min_bucket_size,
+                      BucketKnnGraph& to_merge_bucket_knn_graph); 
+
+    void BuildBucketsKnnGraph(BucketList& bucket_list,
+                              BucketList& neighbor_bucket_list,
                               int bucket_neighbor_num,
                               BucketKnnGraph& bucket_knn_graph); 
 
-    void BuildPointsKnnGraph(Bucket2Point& bucket2point, int point_neighbor_num); 
+    void BuildPointsKnnGraph(Bucket2Point& bucket2point);
 
+    void GetSplitMergeBucketsList(Bucket2Point& bucket2point, 
+                                  BucketList& bucket_list, 
+                                  BucketList& to_split_bucket_list, 
+                                  BucketList& to_merge_bucket_list,
+                                  int max_bucket_size, 
+                                  int min_bucket_size); 
+    
   private:
     std::vector<std::string> index2key_;
     std::vector<IndexNode> index2neighbor_;
@@ -93,15 +122,40 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   Clear();
 
   // encode
-  Bucket2Point bucket2point; 
-  Encode2Buckets(bucket2point, encoder, index_param.point_neighbor_num); 
+  Bucket2PointPtr bucket2point_ptr(new Bucket2Point()); 
+  Encode2Buckets(*bucket2point_ptr, encoder, index_param.point_neighbor_num); 
   
-  // construct bucket knn graph
-  BucketKnnGraph bucket_knn_graph;
-  BuildBucketsKnnGraph(bucket2point, index_param.bucket_neighbor_num, bucket_knn_graph);
+  std::cout << "encode buckets done" << std::endl;
 
-  // split and merge buckets
-  SplitAndMergeBuckets(bucket2point, index_param.max_bucket_size, index_param.min_bucket_size, bucket_knn_graph);
+  // get bucket list
+  int max_bucket_size = index_param.max_bucket_size;
+  int min_bucket_size = index_param.min_bucket_size;
+  BucketList bucket_list, to_split_bucket_list, to_merge_bucket_list;
+  GetSplitMergeBucketsList(*bucket2point_ptr, bucket_list, to_split_bucket_list, 
+                           to_merge_bucket_list, max_bucket_size, min_bucket_size);
+
+  std::cout << "get split merge buckets done" << std::endl;
+
+  // construct need merged bucket knn graph
+  BucketKnnGraphPtr to_merge_bucket_knn_graph_ptr(new BucketKnnGraph());
+  BuildBucketsKnnGraph(to_merge_bucket_list, bucket_list, 
+                       index_param.bucket_neighbor_num, 
+                       *to_merge_bucket_knn_graph_ptr);
+
+  std::cout << "build merge buckets knn graph done" << std::endl;
+
+  // split firstly for that too small bucketscan be merged
+  SplitBuckets(*bucket2point_ptr, max_bucket_size, min_bucket_size, to_split_bucket_list); 
+
+  std::cout << "split done" << std::endl;
+
+  // merge buckets
+  MergeBuckets(*bucket2point_ptr, max_bucket_size, min_bucket_size, *to_merge_bucket_knn_graph_ptr);
+
+  std::cout << "merge done" << std::endl;
+
+  // build point knn graph
+  BuildPointsKnnGraph(*bucket2point_ptr);
 
   // build
   this->have_built_ = true;
@@ -139,7 +193,34 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Encode2Buckets(
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::SplitBucket(
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::GetSplitMergeBucketsList(
+    Bucket2Point& bucket2point, BucketList& bucket_list, 
+    BucketList& to_split_bucket_list, BucketList& to_merge_bucket_list,
+    int max_bucket_size, int min_bucket_size) {
+  for (auto& item : bucket2point) {
+    bucket_list.push_back(item.first);
+    if (item.second.size() > max_bucket_size + min_bucket_size) {
+      to_split_bucket_list.push_back(item.first);
+    }
+    if (item.second.size() < min_bucket_size) {
+      to_merge_bucket_list.push_back(item.first);
+    }
+  }
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::SplitBuckets(
+    Bucket2Point& bucket2point, 
+    int max_bucket_size,
+    int min_bucket_size,
+    BucketList& to_split_bucket_list) {
+  for (IntCode big_bucket : to_split_bucket_list) {
+    SplitOneBucket(bucket2point, big_bucket, max_bucket_size, min_bucket_size);
+  }
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::SplitOneBucket(
     Bucket2Point& bucket2point, 
     IntCode cur_bucket, 
     int max_bucket_size, 
@@ -162,7 +243,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SplitBucket(
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::MergeBucket(
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::MergeOneBucket(
     Bucket2Point& bucket2point,
     IntCode cur_bucket,
     int max_bucket_size,
@@ -173,19 +254,19 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::MergeBucket(
     bucket_neighbor_dist.Sort();
     auto bucket_neighbor_iter = bucket_neighbor_dist.Begin();
     for (; bucket_neighbor_iter != bucket_neighbor_dist.End(); bucket_neighbor_iter++) {
-      IntCode neighbor_id = bucket_neighbor_iter->id;
+      IntCode neighbor_bucket = bucket_neighbor_iter->id;
       // neighbor bucket has been merged
-      if (merged_buckets.find(neighbor_id) != merged_buckets.end()) {
+      if (merged_buckets.find(neighbor_bucket) != merged_buckets.end()) {
         continue;
       }
       
       // if not exceed split threshold
-      if (bucket2point[neighbor_id].size() + bucket2point[cur_bucket].size() 
+      if (bucket2point[neighbor_bucket].size() + bucket2point[cur_bucket].size() 
           <= max_bucket_size + min_bucket_size) {
         bucket2point[cur_bucket].insert(bucket2point[cur_bucket].end(),
-                                        bucket2point[neighbor_id].begin(),
-                                        bucket2point[neighbor_id].end());
-        merged_buckets.insert(neighbor_id);
+                                        bucket2point[neighbor_bucket].begin(),
+                                        bucket2point[neighbor_bucket].end());
+        merged_buckets.insert(neighbor_bucket);
       }
 
       // check
@@ -197,73 +278,48 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::MergeBucket(
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::SplitAndMergeBuckets(
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::MergeBuckets(
     Bucket2Point& bucket2point, 
     int max_bucket_size,
     int min_bucket_size,
-    BucketKnnGraph& bucket_knn_graph) {
+    BucketKnnGraph& to_merge_bucket_knn_graph) {
   // split and merge
   std::unordered_set<IntCode> merged_buckets;
   int split_threshold = static_cast<int>(max_bucket_size + min_bucket_size);
-  auto iter = bucket_knn_graph.begin(); 
-  for (; iter != bucket_knn_graph.end(); iter++) {
+  auto iter = to_merge_bucket_knn_graph.begin(); 
+  for (; iter != to_merge_bucket_knn_graph.end(); iter++) {
     IntCode cur_bucket = iter->first;
-
     // check whether current bucket has been merged 
     if (merged_buckets.find(cur_bucket) != merged_buckets.end()) {
       continue;
     }
 
-    SplitBucket(bucket2point, cur_bucket, max_bucket_size, min_bucket_size);
-
     BucketHeap& bucket_neighbor_dist = iter->second;
-    MergeBucket(bucket2point, cur_bucket, max_bucket_size, min_bucket_size, 
+    MergeOneBucket(bucket2point, cur_bucket, max_bucket_size, min_bucket_size, 
                 bucket_neighbor_dist, merged_buckets); 
   }
-
-  /*
-  std::cout << std::endl << "=====Split===== " << bucket2point.size() << std::endl;
-  */
 
   // remove merged buckets
   for (auto bucket_id : merged_buckets) {
     bucket2point.erase(bucket_id);
   }
-
-  /*
-  std::cout << std::endl << "=====Split===== " << bucket2point.size() << std::endl;
-
-  std::unordered_map<IntCode, std::vector<IntIndex> >::iterator it = bucket2point.begin(); 
-  for(; it != bucket2point.end(); it++) {
-    std::cout << it->first << " : " << it->second.size() << std::endl;
-  }
-  */
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildBucketsKnnGraph(
-    Bucket2Point& bucket2point,
+    BucketList& bucket_list,
+    BucketList& neighbor_bucket_list,
     int bucket_neighbor_num,
     BucketKnnGraph& bucket_knn_graph) {
-  std::vector<IntCode> buckets;
-  for (auto& item : bucket2point) {
-    buckets.push_back(item.first);
-  }
 
-  for (int i = 0; i < buckets.size(); i++) {
-    IntCode cur_bucket = buckets[i];
+  for (IntCode cur_bucket : bucket_list) {
     // avoid tmp heap obj
     bucket_knn_graph.insert(BucketKnnGraph::value_type(cur_bucket, BucketHeap(bucket_neighbor_num)));
-    for (int j = 0; j < buckets.size(); j++) {
-      if (i != j) {
+    for (IntCode neighbor_bucket : neighbor_bucket_list) {
+      if (cur_bucket != neighbor_bucket) {
         // calculate hamming distance
-        IntCode xor_result = buckets[i] ^ buckets[j];
-        IntCode hamming_dist = 0;
-        while (xor_result) {
-          xor_result &= xor_result-1;
-          hamming_dist++;
-        }
-        bucket_knn_graph[cur_bucket].Insert(BucketDistancePairItem(buckets[j], hamming_dist)); 
+        IntCode hamming_dist = CalculateHammingDistance(cur_bucket, neighbor_bucket);
+        bucket_knn_graph[cur_bucket].Insert(BucketDistancePairItem(neighbor_bucket, hamming_dist)); 
       }
     }
   }
@@ -271,8 +327,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildBucketsKnnGraph
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildPointsKnnGraph(
-    Bucket2Point& bucket2point,
-    int point_neighbor_num) {
+    Bucket2Point& bucket2point) {
   util::PointPairDistanceTable<IntIndex, DistanceType>  point_pair_distance_table;
   DistanceFuncType distance_func;
   auto iter = bucket2point.begin(); 
@@ -288,7 +343,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildPointsKnnGraph(
           DistanceType dist;
           bool dist_exist = point_pair_distance_table.Get(cur_point, neighbor_point, dist);
           if (!dist_exist) {
-            dist = distance_func(this->dataset_ptr_.Get(index2key_[cur_point], index2key_[neighbor_point]));
+            dist = distance_func(this->dataset_ptr_->Get(index2key_[cur_point]),
+                                 this->dataset_ptr_->Get(index2key_[neighbor_point])); 
             point_pair_distance_table.Insert(cur_point, neighbor_point, dist);
           }
 
@@ -297,6 +353,35 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildPointsKnnGraph(
       }
     }
   }
+
+  std::cout << "build point knn graph done" << std::endl;
+
+  std::map<IntIndex, int> point_neighbored_count;
+  for (auto& index_node : index2neighbor_) {
+    auto& nearest_neighbor = index_node.nearest_neighbor;
+    for (auto iter = nearest_neighbor.Begin(); iter != nearest_neighbor.End(); iter++) {
+      auto cur_count = point_neighbored_count.find(iter->id);
+      if (cur_count == point_neighbored_count.end()) {
+        point_neighbored_count[iter->id] = 1;
+      }
+      else {
+        cur_count->second += 1;
+      }
+    }
+  }
+
+  std::vector<int> point_count_vector;
+  for (auto& count_info : point_neighbored_count) {
+    point_count_vector.push_back(count_info.second);
+  }
+  std::sort(point_count_vector.begin(), point_count_vector.end());
+  std::reverse(point_count_vector.begin(), point_count_vector.end());
+
+  for (int i = 0; i < 100; i++) {
+    std::cout << point_count_vector[i] << "\t";
+  }
+
+  std::cout << std::endl;
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
