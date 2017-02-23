@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <ctime>
 
+#define LITTLE_DATA_TEST
+
 using namespace std;
 using namespace yannsa;
 using namespace yannsa::wrapper;
@@ -78,10 +80,12 @@ int main() {
   float query_ratio = 0.0001;
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   DatasetPtr<float> querys_ptr(new Dataset<float>());
-  //int point_dim = CreateDataset("data/word_rep_little", dataset_ptr, querys_ptr, query_ratio);
-  //int point_dim = CreateDataset("data/word_rep", dataset_ptr, querys_ptr, query_ratio);
   LogTime("start read dataset");
+#if defined(LITTLE_DATA_TEST)
+  int point_dim = CreateDataset("data/word_rep", dataset_ptr, querys_ptr, query_ratio);
+#elif defined(LARGE_DATA_TEST)
   int point_dim = CreateDataset("data/glove.twitter.27B.100d.txt", dataset_ptr, querys_ptr, query_ratio);
+#endif
   LogTime("end read dataset");
   
   CosineBruteForceIndexPtr<float> truth_index_ptr(new CosineBruteForceIndex<float>(dataset_ptr));
@@ -89,8 +93,13 @@ int main() {
   util::GraphIndexParameter param;
   param.point_neighbor_num = 10;
   param.bucket_neighbor_num = 10;
+#if defined(LITTLE_DATA_TEST)
+  param.min_bucket_size = 50;
+  param.max_bucket_size = 200;
+#elif defined(LARGE_DATA_TEST)
   param.min_bucket_size = 500;
   param.max_bucket_size = 2000;
+#endif
   BinaryEncoder<PointVector<float>, float> binary_encoder(point_dim, 10);
 
   LogTime("start build index");
