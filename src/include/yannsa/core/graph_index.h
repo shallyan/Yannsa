@@ -70,6 +70,11 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
       return hamming_dist;
     }
 
+    // half for initial bucket code and distance calculation, half for split
+    inline int GetHalfBucketCodeLength() {
+      return sizeof(IntCode) * CHAR_BIT / 2; 
+    }
+
     void Encode2Buckets(Bucket2Point& bucket2point, 
                         util::BaseEncoder<PointType>& encoder,
                         int point_neighbor_num); 
@@ -157,6 +162,9 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   // build point knn graph
   BuildPointsKnnGraph(*bucket2point_ptr);
 
+  // 
+
+
   // build
   this->have_built_ = true;
 }
@@ -225,7 +233,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SplitOneBucket(
     IntCode cur_bucket, 
     int max_bucket_size, 
     int min_bucket_size) {
-  int high_bits_num = sizeof(IntCode) * CHAR_BIT / 2; 
+  int high_bits_num = GetHalfBucketCodeLength();
   int new_bucket_count = 0;
   while (bucket2point[cur_bucket].size() > max_bucket_size + min_bucket_size) {
     new_bucket_count++;
@@ -318,7 +326,9 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildBucketsKnnGraph
     for (IntCode neighbor_bucket : neighbor_bucket_list) {
       if (cur_bucket != neighbor_bucket) {
         // calculate hamming distance
-        IntCode hamming_dist = CalculateHammingDistance(cur_bucket, neighbor_bucket);
+        int half_bucket_code_length = GetHalfBucketCodeLength(); 
+        IntCode hamming_dist = CalculateHammingDistance(cur_bucket << half_bucket_code_length, 
+                                                        neighbor_bucket << half_bucket_code_length);
         bucket_knn_graph[cur_bucket].Insert(BucketDistancePairItem(neighbor_bucket, hamming_dist)); 
       }
     }
