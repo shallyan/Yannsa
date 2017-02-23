@@ -14,11 +14,11 @@ TEST(ContainerTest, AddPoint) {
   point_a << 0.1, 0.2, 0.3;
 
   Container<PointVector<float> > dataset;
-  dataset.AddPoint("point_a", point_a); 
+  dataset.Insert("point_a", point_a); 
 
   ASSERT_EQ(dataset.Size(), 1);
 
-  ASSERT_THROW(dataset.AddPoint("point_a", point_a), KeyExistError); 
+  ASSERT_THROW(dataset.Insert("point_a", point_a), KeyExistError); 
 }
 
 TEST(ContainerTest, Iterator) {
@@ -30,8 +30,8 @@ TEST(ContainerTest, Iterator) {
 
   typedef Container<PointVector<int> > Dataset;
   Dataset dataset;
-  dataset.AddPoint("point_a", point_a); 
-  dataset.AddPoint("point_b", point_b); 
+  dataset.Insert("point_a", point_a); 
+  dataset.Insert("point_b", point_b); 
 
   Dataset::Iterator iter = dataset.Begin();
   ASSERT_EQ(iter->first, "point_a");

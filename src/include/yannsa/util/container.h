@@ -17,7 +17,7 @@ class Container {
     typedef typename std::vector<KeyPointPair>::iterator Iterator;
 
   public:
-    void AddPoint(const std::string& key, const PointType& new_point) {
+    void Insert(const std::string& key, const PointType& new_point) {
       if (key2index_.find(key) != key2index_.end()) {
         throw KeyExistError("Key already exists!");
       }
@@ -41,6 +41,10 @@ class Container {
 
     inline Iterator End() {
       return index2key_point_pair_.end();
+    }
+
+    inline const PointType& Get(const std::string& key) {
+      return index2key_point_pair_[key2index_[key]].second; 
     }
 
   private:

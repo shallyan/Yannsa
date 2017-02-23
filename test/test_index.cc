@@ -26,7 +26,7 @@ TEST(IndexTest, CreateGraphIndex) {
   CosineGraphIndex<float>::PointVector point_a(3);
   point_a << 0.1, 0.2, 0.3;
 
-  dataset_ptr->AddPoint("a", point_a);
+  dataset_ptr->Insert("a", point_a);
   ASSERT_EQ(dataset_ptr->Size(), 1);
 
   CosineGraphIndex<float> index(dataset_ptr);
@@ -45,13 +45,13 @@ TEST(IndexTest, BruteForceIndexSearch) {
   CosineBruteForceIndex<float>::PointVector point_d(3);
   point_d << 0.9, 0.1, 0.2;
 
-  dataset_ptr->AddPoint("a", point_a);
-  dataset_ptr->AddPoint("b", point_b);
-  dataset_ptr->AddPoint("c", point_c);
-  dataset_ptr->AddPoint("d", point_d);
-  dataset_ptr->AddPoint("e", point_d);
-  dataset_ptr->AddPoint("f", point_d);
-  dataset_ptr->AddPoint("g", point_d);
+  dataset_ptr->Insert("a", point_a);
+  dataset_ptr->Insert("b", point_b);
+  dataset_ptr->Insert("c", point_c);
+  dataset_ptr->Insert("d", point_d);
+  dataset_ptr->Insert("e", point_d);
+  dataset_ptr->Insert("f", point_d);
+  dataset_ptr->Insert("g", point_d);
   ASSERT_EQ(dataset_ptr->Size(), 7);
 
   CosineBruteForceIndex<float> index(dataset_ptr);
@@ -79,13 +79,13 @@ TEST(IndexTest, BruteForceIndexSearchWithWrapperRep) {
   PointVector<float> point_d(3);
   point_d << 0.9, 0.1, 0.2;
 
-  dataset_ptr->AddPoint("a", point_a);
-  dataset_ptr->AddPoint("b", point_b);
-  dataset_ptr->AddPoint("c", point_c);
-  dataset_ptr->AddPoint("d", point_d);
-  dataset_ptr->AddPoint("e", point_d);
-  dataset_ptr->AddPoint("f", point_d);
-  dataset_ptr->AddPoint("g", point_d);
+  dataset_ptr->Insert("a", point_a);
+  dataset_ptr->Insert("b", point_b);
+  dataset_ptr->Insert("c", point_c);
+  dataset_ptr->Insert("d", point_d);
+  dataset_ptr->Insert("e", point_d);
+  dataset_ptr->Insert("f", point_d);
+  dataset_ptr->Insert("g", point_d);
   ASSERT_EQ(dataset_ptr->Size(), 7);
 
   CosineBruteForceIndex<float> index(dataset_ptr);

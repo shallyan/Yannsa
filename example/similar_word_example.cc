@@ -49,10 +49,10 @@ int CreateDataset(const string& file_path,
     assert(dim_count == vec_dim);
 
     if (has_read_num < querys_num) {
-      querys_ptr->AddPoint(word, point);
+      querys_ptr->Insert(word, point);
     }
     else {
-      dataset_ptr->AddPoint(word, point);
+      dataset_ptr->Insert(word, point);
     }
     
     has_read_num++;
