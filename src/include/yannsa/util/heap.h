@@ -19,6 +19,10 @@ class Heap {
       heap_.reserve(max_size_);
     }
 
+    inline void Clear() {
+      heap_.clear();
+    }
+
     inline size_t Size() {
       return heap_.size();
     }

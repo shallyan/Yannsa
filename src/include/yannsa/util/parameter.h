@@ -7,6 +7,7 @@ namespace util {
 struct GraphIndexParameter {
   int point_neighbor_num;
   int bucket_neighbor_num;
+  int bucket_key_point_num;
   int min_bucket_size;
   int max_bucket_size;
 };
