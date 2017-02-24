@@ -43,10 +43,11 @@ class Heap {
       std::make_heap(heap_.begin(), heap_.end());
     }
 
-    void Insert(const PointType& new_point) {
+    int Insert(const PointType& new_point) {
       size_t cur_size = Size();
       if (max_size_ == 0 || cur_size < max_size_) {
         Push(new_point);
+        return 1;
       }
       else if (cur_size > 0) {
         const PointType& top_point = heap_.front();
@@ -57,11 +58,12 @@ class Heap {
 
           // add current new one
           Push(new_point);
+          return 1;
         }
       }
+      return 0;
     }
 
-  private:
     void Push(const PointType& new_point) {
       heap_.push_back(new_point);
       std::push_heap(heap_.begin(), heap_.end());
@@ -72,6 +74,9 @@ class Heap {
       heap_.pop_back();
     }
 
+    PointType& Front() {
+      return heap_.front(); 
+    }
   private:
     std::vector<PointType> heap_;
     int max_size_;

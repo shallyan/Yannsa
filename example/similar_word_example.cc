@@ -78,7 +78,7 @@ int CreateDataset(const string& file_path,
 }
 
 int main() {
-  float query_ratio = 0.0001;
+  float query_ratio = 0.01;
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   DatasetPtr<float> querys_ptr(new Dataset<float>());
   LogTime("start read dataset");
@@ -142,7 +142,7 @@ int main() {
     hit_count += cur_hit_count;
     cout << "precision: " << cur_hit_count * 1.0 / k << endl << endl;
   }
-  cout << "average precision: " << hit_count * 1.0 / k *querys_ptr->Size() << endl;
+  cout << "average precision: " << hit_count * 1.0 / (k *querys_ptr->Size()) << endl;
 
   return 0;
 }

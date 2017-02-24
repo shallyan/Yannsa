@@ -126,6 +126,11 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
                                   int max_bucket_size, 
                                   int min_bucket_size); 
     
+    template <typename PointKnnGraphType>
+    void FindKnnInGraph(const PointType& query, PointKnnGraphType& knn_graph,
+                        PointDistancePairItem& start_point, PointHeap& k_candidates_heap, 
+                        std::unordered_set<IntIndex>& has_visited_point); 
+
   private:
     std::vector<std::string> index2key_;
     ContinuesPointKnnGraph all_point_knn_graph_;
@@ -448,12 +453,100 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
     int k, 
     std::vector<std::string>& search_result) {
   if (!this->have_built_) {
-    throw IndexNotBuildError("Graph index hasn't been built!"); 
+    throw IndexNotBuildError("Graph index hasn't been built!");
   }
 
-  search_result.clear();
+  PointList start_points;
+  IntCode bucket_code = encoder_ptr_->Encode(query);
+  // bucket may be merged
+  auto merged_iter = merged_bucket_map_.find(bucket_code); 
+  if (merged_iter != merged_bucket_map_.end()){
+    bucket_code = merged_iter->second;
+  }
 
-  // Init some points, search from these points
+  // if bucket not exist, use nearest bucket
+  for (int step = 0; ; step++) {
+    IntCode left_bucket = bucket_code - step;
+    IntCode right_bucket = bucket_code + step;
+    if (left_bucket >= 0) {
+      auto find_iter = bucket2key_point_.find(left_bucket);
+      if (find_iter != bucket2key_point_.end()){
+        start_points = find_iter->second;
+        break;
+      }
+    }
+
+    // won't overflow
+    if (right_bucket != bucket_code) {
+      auto find_iter = bucket2key_point_.find(right_bucket);
+      if (find_iter != bucket2key_point_.end()){
+        start_points = find_iter->second;
+        break;
+      }
+    }
+  }
+
+  // search from start points in key point knn graph
+  DistanceFuncType distance_func;
+  std::unordered_set<IntIndex> has_visited_point;
+  PointHeap key_candidates_heap(0);
+  for (const auto& one_start_point : start_points) {
+    if (has_visited_point.find(one_start_point) == has_visited_point.end()) {
+      DistanceType dist = distance_func(this->dataset_ptr_->Get(index2key_[one_start_point]), query);
+      PointDistancePairItem point_dist(one_start_point, dist);
+      has_visited_point.insert(one_start_point);
+    
+      PointHeap nearest_heap(1);
+      FindKnnInGraph(query, key_point_knn_graph_, point_dist, nearest_heap, has_visited_point); 
+      if (nearest_heap.Size() > 0) {
+        key_candidates_heap.Insert(nearest_heap.Front());
+      }
+    }
+  }
+
+  // search from key points in all point knn graph
+  PointHeap k_candidates_heap(k);
+  auto key_iter = key_candidates_heap.Begin();
+  for (; key_iter != key_candidates_heap.End(); key_iter++) {
+    FindKnnInGraph(query, all_point_knn_graph_, *key_iter, k_candidates_heap, has_visited_point); 
+  }
+  
+  search_result.clear();
+  k_candidates_heap.Sort();
+  auto result_iter = k_candidates_heap.Begin();
+  for (; result_iter != k_candidates_heap.End(); result_iter++) {
+    search_result.push_back(index2key_[result_iter->id]);
+  }
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
+template <typename PointKnnGraphType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindKnnInGraph(
+    const PointType& query, PointKnnGraphType& knn_graph,
+    PointDistancePairItem& start_point, PointHeap& k_candidates_heap,
+    std::unordered_set<IntIndex>& has_visited_point) {
+  DistanceFuncType distance_func;
+  PointHeap traverse_heap(0);
+  traverse_heap.Insert(start_point);
+  k_candidates_heap.Insert(start_point);
+  while (traverse_heap.Size() > 0) {
+    IntIndex cur_nearest_point = traverse_heap.Front().id;
+    traverse_heap.Pop();
+
+    PointHeap& point_neighbor = knn_graph[cur_nearest_point];
+    auto neighbor_iter = point_neighbor.Begin();
+    for (; neighbor_iter != point_neighbor.End(); neighbor_iter++) {
+      if (has_visited_point.find(neighbor_iter->id) == has_visited_point.end()) {
+        DistanceType dist = distance_func(this->dataset_ptr_->Get(index2key_[neighbor_iter->id]), query);
+        PointDistancePairItem point_dist(neighbor_iter->id, dist);
+        int update_count = k_candidates_heap.Insert(point_dist);
+        if (update_count > 0) {
+          traverse_heap.Insert(point_dist);
+        }
+        has_visited_point.insert(neighbor_iter->id);
+      }
+    }
+  }
 }
 
 } // namespace core 
