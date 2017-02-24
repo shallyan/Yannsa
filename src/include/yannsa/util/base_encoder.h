@@ -2,6 +2,7 @@
 #define YANNSA_CODE_H
 
 #include "yannsa/base/type_definition.h"
+#include <memory>
 
 namespace yannsa {
 namespace util {
@@ -16,6 +17,9 @@ class BaseEncoder {
   protected:
     int code_length_;
 };
+
+template <typename PointType>
+using BaseEncoderPtr = std::shared_ptr<BaseEncoder<PointType> >;
 
 } // namespace util
 } // namespace yannsa

@@ -12,12 +12,13 @@
 
 using namespace std;
 using namespace yannsa;
+using namespace yannsa::util;
 using namespace yannsa::wrapper;
 
 void LogTime(const std::string& prompt) {
   time_t now = time(0);
   char* dt = ctime(&now);
-  cout << prompt << ": " << dt << endl;
+  cout << prompt << ": " << dt;
 }
 
 int CreateDataset(const string& file_path,
@@ -92,6 +93,7 @@ int main() {
   CosineGraphIndexPtr<float> graph_index_ptr(new CosineGraphIndex<float>(dataset_ptr));
   util::GraphIndexParameter param;
   param.point_neighbor_num = 10;
+  param.bucket_key_point_num = 10;
   param.bucket_neighbor_num = 10;
 #if defined(LITTLE_DATA_TEST)
   param.min_bucket_size = 50;
@@ -100,10 +102,11 @@ int main() {
   param.min_bucket_size = 500;
   param.max_bucket_size = 2000;
 #endif
-  BinaryEncoder<PointVector<float>, float> binary_encoder(point_dim, 10);
+  BaseEncoderPtr<PointVector<float> > 
+      binary_encoder_ptr(new BinaryEncoder<PointVector<float>, float>(point_dim, 10));
 
   LogTime("start build index");
-  graph_index_ptr->Build(param, binary_encoder);
+  graph_index_ptr->Build(param, binary_encoder_ptr);
   LogTime("end build index");
 
   vector<string> actual_result;

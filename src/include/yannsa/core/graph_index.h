@@ -2,6 +2,7 @@
 #define YANNSA_GRAPH_INDEX_H 
 
 #include "yannsa/base/type_definition.h"
+#include "yannsa/base/error_definition.h"
 #include "yannsa/core/base_index.h"
 #include "yannsa/util/heap.h"
 #include "yannsa/util/parameter.h"
@@ -14,8 +15,6 @@
 #include <memory>
 #include <iostream>
 #include <climits>
-
-#include <map>
 #include <algorithm>
 
 namespace yannsa {
@@ -53,11 +52,12 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     GraphIndex(typename BaseClass::DatasetPtr& dataset_ptr) : BaseClass(dataset_ptr) {}
 
     void Build(const util::GraphIndexParameter& index_param, 
-               util::BaseEncoder<PointType>& encoder); 
+               util::BaseEncoderPtr<PointType>& encoder_ptr); 
 
     void Clear() {
       index2key_.clear();
       all_point_knn_graph_.clear();
+      key_point_knn_graph_.clear();
       bucket2key_point_.clear();
       merged_bucket_map_.clear();
     }
@@ -83,7 +83,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     }
 
     void Encode2Buckets(Bucket2Point& bucket2point, 
-                        util::BaseEncoder<PointType>& encoder,
                         int point_neighbor_num); 
 
     void SplitOneBucket(Bucket2Point& bucket2point, 
@@ -130,19 +129,24 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
   private:
     std::vector<std::string> index2key_;
     ContinuesPointKnnGraph all_point_knn_graph_;
+    DiscretePointKnnGraph key_point_knn_graph_;
     Bucket2Point bucket2key_point_;
     MergedBucketMap merged_bucket_map_; 
+    util::BaseEncoderPtr<PointType> encoder_ptr_;
 };
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
-    const util::GraphIndexParameter& index_param, 
-    util::BaseEncoder<PointType>& encoder) {
+    const util::GraphIndexParameter& index_param,
+    util::BaseEncoderPtr<PointType>& encoder_ptr) { 
   Clear();
+
+  // record encoder for query search
+  encoder_ptr_ = encoder_ptr;
 
   // encode
   Bucket2PointPtr bucket2point_ptr(new Bucket2Point()); 
-  Encode2Buckets(*bucket2point_ptr, encoder, index_param.point_neighbor_num); 
+  Encode2Buckets(*bucket2point_ptr, index_param.point_neighbor_num); 
   
   std::cout << "encode buckets done" << std::endl;
 
@@ -175,13 +179,42 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
 
   std::cout << "merge done" << std::endl;
 
+  // print bucket num
+  /*
+  for (auto x : *bucket2point_ptr) {
+    std::cout << x.second.size() << "\t"; 
+  }
+  std::cout << std::endl;
+  */
+
   // build point knn graph
   BuildAllBucketsPointsKnnGraph(*bucket2point_ptr);
+
+  std::cout << "build point knn graph done" << std::endl;
 
   // count point in degree 
   FindBucketKeyPoints(*bucket2point_ptr, index_param.bucket_key_point_num);
 
-  // build point knn graph
+  std::cout << "find bucket key points done" << std::endl;
+
+  // build key point knn graph
+  PointList key_point_list;
+  for (auto bucket_key_point : bucket2key_point_) {
+    key_point_list.insert(key_point_list.end(),
+                          bucket_key_point.second.begin(),
+                          bucket_key_point.second.end());
+  }
+  for (auto key_point : key_point_list) {
+    key_point_knn_graph_.insert(typename DiscretePointKnnGraph::value_type(
+          key_point, 
+          PointHeap(index_param.point_neighbor_num)));
+  }
+
+  std::cout << "get key points list done, size: " << key_point_list.size() << std::endl;
+
+  BuildPointsKnnGraph(key_point_list, key_point_knn_graph_); 
+
+  std::cout << "build key points knn graph done" << std::endl;
 
   // build
   this->have_built_ = true;
@@ -190,7 +223,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::Encode2Buckets(
     Bucket2Point& bucket2point, 
-    util::BaseEncoder<PointType>& encoder,
     int point_neighbor_num) { 
   bucket2point.clear();
   typename Dataset::Iterator iter = this->dataset_ptr_->Begin();
@@ -204,18 +236,11 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Encode2Buckets(
     all_point_knn_graph_.push_back(PointHeap(point_neighbor_num));
 
     // encode point
-    IntCode point_code = encoder.Encode(point);
+    IntCode point_code = encoder_ptr_->Encode(point);
     bucket2point[point_code].push_back(point_index);
 
     iter++;
   }
-  
-  /*
-  std::unordered_map<IntCode, std::vector<IntIndex> >::iterator it = bucket2point.begin(); 
-  for(; it != bucket2point.end(); it++) {
-    std::cout << it->first << " : " << it->second.size() << std::endl;
-  }
-  */
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
@@ -377,8 +402,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildAllBucketsPoint
   for (; iter != bucket2point.end(); iter++) {
     BuildPointsKnnGraph(iter->second, all_point_knn_graph_);
   }
-
-  std::cout << "build point knn graph done" << std::endl;
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
@@ -386,7 +409,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindBucketKeyPoints(
     Bucket2Point& bucket2point,
     int key_point_num) {
   // count points in degree
-  std::map<IntIndex, int> point_in_degree_count;
+  std::unordered_map<IntIndex, int> point_in_degree_count;
   for (auto& nearest_neighbor : all_point_knn_graph_) {
     auto iter = nearest_neighbor.Begin();
     for (; iter != nearest_neighbor.End(); iter++) {
@@ -401,8 +424,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindBucketKeyPoints(
   }
 
   // find key points
-  auto bucket_point_iter = bucket2point.begin();
   util::Heap<PointDistancePair<int, int> > key_heap(key_point_num);
+  auto bucket_point_iter = bucket2point.begin();
   for (; bucket_point_iter != bucket2point.end(); bucket_point_iter++) {
     IntCode cur_bucket = bucket_point_iter->first;
     std::vector<IntIndex>& point_list = bucket_point_iter->second;
@@ -424,7 +447,12 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
     const PointType& query, 
     int k, 
     std::vector<std::string>& search_result) {
+  if (!this->have_built_) {
+    throw IndexNotBuildError("Graph index hasn't been built!"); 
+  }
+
   search_result.clear();
+
   // Init some points, search from these points
 }
 
