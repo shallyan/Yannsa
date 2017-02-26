@@ -137,7 +137,7 @@ int main() {
   vector<string> actual_result;
   vector<string> graph_result;
   vector<string> result_intersection;
-  int k = 10;
+  int k = 1;
   int hit_count = 0;
   auto iter = querys_ptr->Begin();
   //ofstream true_file("word_rep_result");
@@ -154,7 +154,10 @@ int main() {
     
     graph_index_ptr->SearchKnn(iter->second, k, graph_result);
     
-    actual_result = ground_truth[iter->first];
+    actual_result.clear();
+    //actual_result = ground_truth[iter->first];
+    actual_result.insert(actual_result.end(), ground_truth[iter->first].begin(), 
+                                              ground_truth[iter->first].begin()+k);
     sort(actual_result.begin(), actual_result.end());
     sort(graph_result.begin(), graph_result.end());
 
