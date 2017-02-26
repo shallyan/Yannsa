@@ -5,6 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <set>
+#include <unordered_map>
 #include <algorithm>
 #include <ctime>
 
@@ -21,12 +22,40 @@ void LogTime(const std::string& prompt) {
   cout << prompt << ": " << dt;
 }
 
+void ReadGroundTruth(const string& file_path,
+                     unordered_map<string, vector<string> >& ground_truth) {
+  ifstream in_file(file_path.c_str());
+  cout << "result file " << file_path << endl;
+
+  string buff;
+  while (getline(in_file, buff)) {
+    stringstream one_word_vec_stream(buff);
+
+    //read word firstly
+    string word;
+    one_word_vec_stream >> word;
+
+    //then read value
+    vector<string> one_result;
+    string one_neighbor;
+    while (one_word_vec_stream >> one_neighbor){ 
+      one_result.push_back(one_neighbor);
+    }
+
+    ground_truth[word] = one_result;
+  }
+
+  cout << "read result done, data num: " 
+       << ground_truth.size() << endl;
+
+}
+
 int CreateDataset(const string& file_path,
-                  DatasetPtr<float>& dataset_ptr, 
-                  DatasetPtr<float>& querys_ptr,
-                  float query_ratio) {
+                  DatasetPtr<float>& dataset_ptr) { 
 
   ifstream in_file(file_path.c_str());
+  cout << "data file " << file_path << endl;
+
   string buff;
 
   //read word and dim number
@@ -37,7 +66,6 @@ int CreateDataset(const string& file_path,
   cout << "vec num: " << vec_num << "\t" 
        << "vec dim: " << vec_dim << endl;
 
-  int querys_num = static_cast<int>(vec_num * query_ratio);
   int has_read_num = 0;
 
   while (getline(in_file, buff)) {
@@ -58,12 +86,7 @@ int CreateDataset(const string& file_path,
     //check dim num
     assert(dim_count == vec_dim);
 
-    if (has_read_num < querys_num) {
-      querys_ptr->Insert(word, point);
-    }
-    else {
-      dataset_ptr->Insert(word, point);
-    }
+    dataset_ptr->Insert(word, point);
     
     has_read_num++;
     if (has_read_num % 10000 == 0) {
@@ -72,24 +95,24 @@ int CreateDataset(const string& file_path,
   }
 
   cout << "create data and query set done, data num: " 
-       << dataset_ptr->Size() << " query num: " << querys_ptr->Size() << endl;
+       << dataset_ptr->Size() << endl;
 
   return vec_dim;
 }
 
 int main() {
-  float query_ratio = 0.01;
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   DatasetPtr<float> querys_ptr(new Dataset<float>());
   LogTime("start read dataset");
 #if defined(LITTLE_DATA_TEST)
-  int point_dim = CreateDataset("data/word_rep", dataset_ptr, querys_ptr, query_ratio);
+  int point_dim = CreateDataset("data/word_rep_data", dataset_ptr);
+  CreateDataset("data/word_rep_query", querys_ptr);
 #elif defined(LARGE_DATA_TEST)
   int point_dim = CreateDataset("data/glove.twitter.27B.100d.txt", dataset_ptr, querys_ptr, query_ratio);
 #endif
   LogTime("end read dataset");
   
-  CosineBruteForceIndexPtr<float> truth_index_ptr(new CosineBruteForceIndex<float>(dataset_ptr));
+  //CosineBruteForceIndexPtr<float> truth_index_ptr(new CosineBruteForceIndex<float>(dataset_ptr));
   CosineGraphIndexPtr<float> graph_index_ptr(new CosineGraphIndex<float>(dataset_ptr));
   util::GraphIndexParameter param;
   param.point_neighbor_num = 10;
@@ -109,28 +132,29 @@ int main() {
   graph_index_ptr->Build(param, binary_encoder_ptr);
   LogTime("end build index");
 
+  unordered_map<string, vector<string> > ground_truth; 
+  ReadGroundTruth("data/word_rep_result", ground_truth);
   vector<string> actual_result;
   vector<string> graph_result;
   vector<string> result_intersection;
-  int k = 1;
+  int k = 10;
   int hit_count = 0;
   auto iter = querys_ptr->Begin();
+  //ofstream true_file("word_rep_result");
+  LogTime("start query search");
   for(int query_id = 0; iter != querys_ptr->End(); iter++, query_id++) {
+    /*
     truth_index_ptr->SearchKnn(iter->second, k, actual_result);
-    graph_index_ptr->SearchKnn(iter->second, k, graph_result);
-
-    cout << "[" << query_id << "]" << iter->first << endl;
-    cout << "actual result: ";
-    for (auto& one_nn : actual_result) {
-      cout << one_nn << " ";
+    true_file << iter->first << " ";
+    for (auto one : actual_result) {
+      true_file << one << " ";
     }
-    cout << endl;
-    cout << "graph result: ";
-    for (auto& one_nn : graph_result) {
-      cout << one_nn << " ";
-    }
-    cout << endl;
+    true_file << endl;
+    */
     
+    graph_index_ptr->SearchKnn(iter->second, k, graph_result);
+    
+    actual_result = ground_truth[iter->first];
     sort(actual_result.begin(), actual_result.end());
     sort(graph_result.begin(), graph_result.end());
 
@@ -140,8 +164,9 @@ int main() {
                      back_inserter(result_intersection));
     int cur_hit_count = result_intersection.size();
     hit_count += cur_hit_count;
-    cout << "precision: " << cur_hit_count * 1.0 / k << endl << endl;
+    //cout << "precision: " << cur_hit_count * 1.0 / k << endl << endl;
   }
+  LogTime("end query search");
   cout << "average precision: " << hit_count * 1.0 / (k *querys_ptr->Size()) << endl;
 
   return 0;
