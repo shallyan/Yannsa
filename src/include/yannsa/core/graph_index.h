@@ -33,12 +33,10 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     typedef std::vector<IntCode> BucketList;
     typedef std::unordered_map<IntCode, IntCode> MergedBucketMap; 
     typedef std::unordered_map<IntCode, std::vector<IntIndex> > Bucket2Point; 
-    typedef std::shared_ptr<Bucket2Point> Bucket2PointPtr;
     // bucket knn graph : MAP --> discrete and not too many items
     typedef PointDistancePair<IntCode, IntCode> BucketDistancePairItem;
     typedef util::Heap<BucketDistancePairItem> BucketHeap;
     typedef std::unordered_map<IntCode, BucketHeap> BucketKnnGraph;
-    typedef std::shared_ptr<BucketKnnGraph> BucketKnnGraphPtr;
 
     // point
     typedef std::vector<IntIndex> PointList;
@@ -150,8 +148,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   encoder_ptr_ = encoder_ptr;
 
   // encode
-  Bucket2PointPtr bucket2point_ptr(new Bucket2Point()); 
-  Encode2Buckets(*bucket2point_ptr, index_param.point_neighbor_num); 
+  Bucket2Point bucket2point;
+  Encode2Buckets(bucket2point, index_param.point_neighbor_num); 
   
   std::cout << "encode buckets done" << std::endl;
 
@@ -159,46 +157,46 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   int max_bucket_size = index_param.max_bucket_size;
   int min_bucket_size = index_param.min_bucket_size;
   BucketList bucket_list, to_split_bucket_list, to_merge_bucket_list;
-  GetSplitMergeBucketsList(*bucket2point_ptr, bucket_list, to_split_bucket_list, 
+  GetSplitMergeBucketsList(bucket2point, bucket_list, to_split_bucket_list, 
                            to_merge_bucket_list, max_bucket_size, min_bucket_size);
 
   std::cout << "get split merge buckets done" << std::endl;
 
   {
     // construct bucket knn graph which need be merged
-    BucketKnnGraphPtr to_merge_bucket_knn_graph_ptr(new BucketKnnGraph());
+    BucketKnnGraph to_merge_bucket_knn_graph;
     BuildBucketsKnnGraph(to_merge_bucket_list, bucket_list, 
                          index_param.bucket_neighbor_num, 
-                         *to_merge_bucket_knn_graph_ptr);
+                         to_merge_bucket_knn_graph);
 
     std::cout << "build merge buckets knn graph done" << std::endl;
 
     // split firstly for that too small bucketscan be merged
-    SplitBuckets(*bucket2point_ptr, max_bucket_size, min_bucket_size, to_split_bucket_list); 
+    SplitBuckets(bucket2point, max_bucket_size, min_bucket_size, to_split_bucket_list); 
 
     std::cout << "split done" << std::endl;
 
     // merge buckets
-    MergeBuckets(*bucket2point_ptr, max_bucket_size, min_bucket_size, *to_merge_bucket_knn_graph_ptr);
+    MergeBuckets(bucket2point, max_bucket_size, min_bucket_size, to_merge_bucket_knn_graph);
   }
 
   std::cout << "merge done" << std::endl;
 
   // print bucket num
   /*
-  for (auto x : *bucket2point_ptr) {
+  for (auto x : bucket2point) {
     std::cout << x.second.size() << "\t"; 
   }
   std::cout << std::endl;
   */
 
   // build point knn graph
-  BuildAllBucketsPointsKnnGraph(*bucket2point_ptr);
+  BuildAllBucketsPointsKnnGraph(bucket2point);
 
   std::cout << "build point knn graph done" << std::endl;
 
   // count point in degree 
-  FindBucketKeyPoints(*bucket2point_ptr, index_param.bucket_key_point_num);
+  FindBucketKeyPoints(bucket2point, index_param.bucket_key_point_num);
 
   std::cout << "find bucket key points done" << std::endl;
 
