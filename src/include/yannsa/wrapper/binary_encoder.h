@@ -16,7 +16,7 @@ template <typename CoordinateType>
 class RealRandomGenerator {
   public:
     RealRandomGenerator(CoordinateType begin, CoordinateType end) 
-        : distribution_generator_(begin, end), random_generator_(std::random_device()()) {
+        : distribution_generator_(begin, end), random_generator_(/*std::random_device()()*/0) {
     }
 
     CoordinateType Random() {
