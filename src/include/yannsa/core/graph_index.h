@@ -156,9 +156,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     MergedBucketMap merged_bucket_map_; 
     util::BaseEncoderPtr<PointType> encoder_ptr_;
     DistanceFuncType distance_func_;
-
-    // for test
-    Bucket2Point bucket2all_point_;
 };
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
@@ -173,7 +170,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   // encode
   Bucket2Point bucket2point;
   Encode2Buckets(bucket2point, index_param.point_neighbor_num); 
-  //Encode2Buckets(bucket2all_point_, index_param.point_neighbor_num); 
   
   std::cout << "encode buckets done" << std::endl;
 
@@ -298,7 +294,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   }
 
   // simple refine
-  for (int loop = 0; loop < 50; loop ++) {
+  for (int loop = 0; loop < 5; loop ++) {
   for (int i = 0; i < all_point_knn_graph_.size(); i++) {
     PointHeap candidates_heap(0);
     PointHeap& cur_neighbor = all_point_knn_graph_[i];
@@ -317,7 +313,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   }
   }
 
-  /*
   // build key point knn graph
   PointList key_point_list;
   for (auto bucket_key_point : bucket2key_point_) {
@@ -336,7 +331,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   BuildPointsKnnGraph(key_point_list, key_point_knn_graph_); 
 
   std::cout << "build key points knn graph done" << std::endl;
-  */
 
   // build
   this->have_built_ = true;
@@ -572,18 +566,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
 
   PointList start_points;
   IntCode bucket_code = encoder_ptr_->Encode(query);
-
-  // hash table test
-  /*
-  PointHeap result_candidates_heap(k);
-
-  DistanceFuncType distance_func;
-  for (auto point_id : bucket2all_point_[bucket_code]) {
-    DistanceType dist = distance_func(this->dataset_ptr_->Get(index2key_[point_id]), query);
-    PointDistancePairItem point_dist(point_id, dist);
-    result_candidates_heap.Insert(point_dist);
-  }
-  */
 
   // bucket may be merged and merged bucket may also be merged
   MergedBucketMap::iterator merged_iter;

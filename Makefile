@@ -31,5 +31,11 @@ $(UNIT_TEST_TARGET): $(UNIT_TEST_OBJ)
 EXAMPLE_FLAGS=$(CXX_FLAGS)
 EXAMPLE_ROOT=example
 
-similar_word_example: $(EXAMPLE_ROOT)/similar_word_example.cc
+similar_word_knn_graph: $(EXAMPLE_ROOT)/similar_word_knn_graph.cc
+	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
+
+similar_word_precision : $(EXAMPLE_ROOT)/similar_word_precision.cc
+	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
+
+similar_word_search : $(EXAMPLE_ROOT)/similar_word_search.cc
 	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^

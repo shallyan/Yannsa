@@ -33,11 +33,15 @@
 
 build_test/*
 yannsa_test
-similar_word_example
+similar_word_knn_graph
+similar_word_search
+similar_word_precision
 tags
 
 count.sh
-word_sim.sh
+word_sim_search.sh
+precision_test.sh
+knn_graph.sh
 
 nohup.out
 
