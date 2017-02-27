@@ -252,6 +252,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
       IntIndex neighbor_bucket_id = neighbor_dist.id;
 
       // whether neighbor_bucket_id needs to be visited
+      /*
       bool need_visit = true;
       for (auto visit_bucket_id : has_visited_bucket[bucket_id]) {
         if (has_visited_bucket[visit_bucket_id].find(neighbor_bucket_id) != has_visited_bucket[visit_bucket_id].end()) {
@@ -263,6 +264,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
       }
 
       has_visited_bucket[bucket_id].insert(neighbor_bucket_id);
+      */
 
       auto& start_point_id = bucket2key_point_[neighbor_bucket_id][0];
       auto& start_point_vec = this->dataset_ptr_->Get(index2key_[start_point_id]);
@@ -284,17 +286,35 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
                        start_point_dist, k_candidates_heap,
                        has_visited_point); 
 
-        /*
         // update
         auto& neighbor_heap = all_point_knn_graph_[point_id];
         auto key_iter = k_candidates_heap.Begin();
         for (; key_iter != k_candidates_heap.End(); key_iter++) {
           neighbor_heap.Insert(*key_iter);
-          all_point_knn_graph_[key_iter->id].Insert(PointDistancePairItem(point_id, key_iter->distance));
+          //all_point_knn_graph_[key_iter->id].Insert(PointDistancePairItem(point_id, key_iter->distance));
         }
-        */
       }
     }
+  }
+
+  // simple refine
+  for (int loop = 0; loop < 50; loop ++) {
+  for (int i = 0; i < all_point_knn_graph_.size(); i++) {
+    PointHeap candidates_heap(0);
+    PointHeap& cur_neighbor = all_point_knn_graph_[i];
+    for (auto iter = cur_neighbor.Begin(); iter != cur_neighbor.End(); iter++) {
+      candidates_heap.Insert(*iter);
+      for (auto iter2 = all_point_knn_graph_[iter->id].Begin();
+                iter2 != all_point_knn_graph_[iter->id].End(); iter2++) {
+        DistanceType dist = distance_func_(this->dataset_ptr_->Get(index2key_[iter2->id]),
+                                           this->dataset_ptr_->Get(index2key_[i])); 
+        candidates_heap.Insert(PointDistancePairItem(iter2->id, dist));
+      }
+    }
+    for (auto iter3 = candidates_heap.Begin(); iter3 != candidates_heap.End(); iter3++) {
+      cur_neighbor.Insert(*iter3);
+    }
+  }
   }
 
   /*

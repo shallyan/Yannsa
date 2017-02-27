@@ -18,8 +18,13 @@ struct PointDistancePair {
 
   PointDistancePair(IndexType point_id, DistanceType dist) : 
                     id(point_id), distance(dist) {}
+
   inline bool operator<(const PointDistancePair& point_distance_pair) const {
     return distance < point_distance_pair.distance;
+  }
+
+  inline bool operator==(const PointDistancePair& point_distance_pair) const {
+    return id == point_distance_pair.id;
   }
 };
 

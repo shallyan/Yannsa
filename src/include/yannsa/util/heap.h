@@ -44,6 +44,10 @@ class Heap {
     }
 
     int Insert(const PointType& new_point) {
+      if (find(heap_.begin(), heap_.end(), new_point) != heap_.end()) {
+        return 0;
+      }
+
       size_t cur_size = Size();
       if (max_size_ == 0 || cur_size < max_size_) {
         Push(new_point);
