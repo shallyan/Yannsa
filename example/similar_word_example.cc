@@ -133,26 +133,31 @@ int main() {
   LogTime("end build index");
 
   unordered_map<string, vector<string> > ground_truth; 
-  ReadGroundTruth("data/word_rep_result", ground_truth);
+  ReadGroundTruth("data/word_rep_data_result", ground_truth);
   vector<string> actual_result;
   vector<string> graph_result;
   vector<string> result_intersection;
-  int k = 1;
+  int k = 10;
   int hit_count = 0;
-  auto iter = querys_ptr->Begin();
-  //ofstream true_file("word_rep_result");
+  auto iter = dataset_ptr->Begin();
+  //ofstream true_file("word_rep_data_result");
   LogTime("start query search");
-  for(int query_id = 0; iter != querys_ptr->End(); iter++, query_id++) {
+  //for(int query_id = 0; iter != querys_ptr->End(); iter++, query_id++) {
+  for(int query_id = 0; iter != dataset_ptr->End(); iter++, query_id++) {
+    if (query_id % 10000 == 0) {
+      LogTime("ground truth test ");
+      cout << query_id << endl;
+    }
     /*
     truth_index_ptr->SearchKnn(iter->second, k, actual_result);
     true_file << iter->first << " ";
-    for (auto one : actual_result) {
-      true_file << one << " ";
+    for (int i = 1; i < actual_result.size(); i++) {
+      true_file << actual_result[i]<< " ";
     }
     true_file << endl;
     */
     
-    graph_index_ptr->SearchKnn(iter->second, k, graph_result);
+    graph_index_ptr->GraphKnn(iter->first, k, graph_result);
     
     actual_result.clear();
     //actual_result = ground_truth[iter->first];
@@ -170,7 +175,7 @@ int main() {
     //cout << "precision: " << cur_hit_count * 1.0 / k << endl << endl;
   }
   LogTime("end query search");
-  cout << "average precision: " << hit_count * 1.0 / (k *querys_ptr->Size()) << endl;
+  cout << "average precision: " << hit_count * 1.0 / (k *dataset_ptr->Size()) << endl;
 
   return 0;
 }

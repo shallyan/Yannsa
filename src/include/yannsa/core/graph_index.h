@@ -64,6 +64,25 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
                    int k, 
                    std::vector<std::string>& search_result); 
 
+    void GraphKnn(const std::string& query_key, 
+                  int k, 
+                  std::vector<std::string>& search_result) {
+      search_result.clear();
+
+      int index;
+      for (index = 0; index < index2key_.size(); index++) {
+        if (index2key_[index] == query_key) {
+          break;
+        }
+      }
+      auto& neighbor_heap = all_point_knn_graph_[index];
+      neighbor_heap.Sort();
+      auto iter = neighbor_heap.Begin();
+      for (; iter != neighbor_heap.End(); iter++) {
+        search_result.push_back(index2key_[iter->id]);
+      }
+    }
+
   private:
     IntCode CalculateHammingDistance(IntCode x, IntCode y) {
       IntCode hamming_dist = 0;
@@ -136,6 +155,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     Bucket2Point bucket2key_point_;
     MergedBucketMap merged_bucket_map_; 
     util::BaseEncoderPtr<PointType> encoder_ptr_;
+    DistanceFuncType distance_func_;
 
     // for test
     Bucket2Point bucket2all_point_;
@@ -160,13 +180,13 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   // get bucket list
   int max_bucket_size = index_param.max_bucket_size;
   int min_bucket_size = index_param.min_bucket_size;
-  BucketList bucket_list, to_split_bucket_list, to_merge_bucket_list;
-  GetSplitMergeBucketsList(bucket2point, bucket_list, to_split_bucket_list, 
-                           to_merge_bucket_list, max_bucket_size, min_bucket_size);
-
-  std::cout << "get split merge buckets done" << std::endl;
-
   {
+    BucketList bucket_list, to_split_bucket_list, to_merge_bucket_list;
+    GetSplitMergeBucketsList(bucket2point, bucket_list, to_split_bucket_list, 
+                             to_merge_bucket_list, max_bucket_size, min_bucket_size);
+
+    std::cout << "get split merge buckets done" << std::endl; 
+
     // construct bucket knn graph which need be merged
     BucketKnnGraph to_merge_bucket_knn_graph;
     BuildBucketsKnnGraph(to_merge_bucket_list, bucket_list, 
@@ -202,10 +222,80 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
 
   std::cout << "build point knn graph done" << std::endl;
 
+  // build bucket knn graph
+  BucketList bucket_list, to_split_bucket_list, to_merge_bucket_list;
+  GetSplitMergeBucketsList(bucket2point, bucket_list, to_split_bucket_list, 
+                           to_merge_bucket_list, max_bucket_size, min_bucket_size);
+
   // count point in degree 
-  FindBucketKeyPoints(bucket2point, index_param.bucket_key_point_num);
+  FindBucketKeyPoints(bucket2point, 1);
 
   std::cout << "find bucket key points done" << std::endl;
+
+  BucketKnnGraph bucket_knn_graph;
+  BuildBucketsKnnGraph(bucket_list, bucket_list,
+                       index_param.bucket_neighbor_num,
+                       bucket_knn_graph);
+
+  std::cout << "start lsh search" << std::endl;
+  std::unordered_map<IntCode, std::unordered_set<IntCode> > has_visited_bucket;
+  int cc_count = 0;
+  for (auto& bucket_id : bucket_list) {
+    cc_count++;
+    if (cc_count % 50 == 0) {
+      std::cout << "finish lsh buckets " << cc_count << std::endl;
+    }
+    auto& neighbor_buckets_heap = bucket_knn_graph[bucket_id];
+    while (neighbor_buckets_heap.Size() > 0) {
+      auto& neighbor_dist = neighbor_buckets_heap.Front();
+      neighbor_buckets_heap.Pop();
+      IntIndex neighbor_bucket_id = neighbor_dist.id;
+
+      // whether neighbor_bucket_id needs to be visited
+      bool need_visit = true;
+      for (auto visit_bucket_id : has_visited_bucket[bucket_id]) {
+        if (has_visited_bucket[visit_bucket_id].find(neighbor_bucket_id) != has_visited_bucket[visit_bucket_id].end()) {
+          need_visit = false;
+        }
+      }
+      if (!need_visit) {
+        continue;
+      }
+
+      has_visited_bucket[bucket_id].insert(neighbor_bucket_id);
+
+      auto& start_point_id = bucket2key_point_[neighbor_bucket_id][0];
+      auto& start_point_vec = this->dataset_ptr_->Get(index2key_[start_point_id]);
+
+      // search current bucket points in neighbor bucket
+      for (auto& point_id : bucket2point[bucket_id]) {
+        PointHeap k_candidates_heap(index_param.point_neighbor_num);
+        std::unordered_set<IntIndex> has_visited_point;
+
+        // start point
+        auto& point_vec = this->dataset_ptr_->Get(index2key_[point_id]);
+        DistanceType dist = distance_func_(start_point_vec, point_vec);
+        PointDistancePairItem start_point_dist(start_point_id, dist);
+        has_visited_point.insert(start_point_id);
+      
+        k_candidates_heap.Insert(start_point_dist);
+        FindKnnInGraph(point_vec,
+                       all_point_knn_graph_,
+                       start_point_dist, k_candidates_heap,
+                       has_visited_point); 
+
+        /*
+        // update
+        auto& neighbor_heap = all_point_knn_graph_[point_id];
+        auto key_iter = k_candidates_heap.Begin();
+        for (; key_iter != k_candidates_heap.End(); key_iter++) {
+          neighbor_heap.Insert(*key_iter);
+          all_point_knn_graph_[key_iter->id].Insert(PointDistancePairItem(point_id, key_iter->distance));
+        }
+        */
+      }
+    }
+  }
 
   /*
   // build key point knn graph
@@ -391,14 +481,13 @@ template <typename PointKnnGraphType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildPointsKnnGraph(
     PointList& point_list,
     PointKnnGraphType& point_knn_graph) {
-  DistanceFuncType distance_func;
   for (int i = 0; i < point_list.size(); i++) {
     IntIndex cur_point = point_list[i];
     for (int j = i+1; j < point_list.size(); j++) {
       IntIndex neighbor_point = point_list[j];
       // avoid repeated distance calculation
-      DistanceType dist = distance_func(this->dataset_ptr_->Get(index2key_[cur_point]),
-                                        this->dataset_ptr_->Get(index2key_[neighbor_point])); 
+      DistanceType dist = distance_func_(this->dataset_ptr_->Get(index2key_[cur_point]),
+                                         this->dataset_ptr_->Get(index2key_[neighbor_point])); 
       point_knn_graph[cur_point].Insert(PointDistancePairItem(neighbor_point, dist));
       point_knn_graph[neighbor_point].Insert(PointDistancePairItem(cur_point, dist));
     }
@@ -508,12 +597,11 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
   }
 
   // search from start points in key point knn graph
-  DistanceFuncType distance_func;
   std::unordered_set<IntIndex> has_visited_point;
   PointHeap key_candidates_heap(0);
   for (const auto& one_start_point : start_points) {
     if (has_visited_point.find(one_start_point) == has_visited_point.end()) {
-      DistanceType dist = distance_func(this->dataset_ptr_->Get(index2key_[one_start_point]), query);
+      DistanceType dist = distance_func_(this->dataset_ptr_->Get(index2key_[one_start_point]), query);
       PointDistancePairItem point_dist(one_start_point, dist);
       has_visited_point.insert(one_start_point);
     
@@ -554,7 +642,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindKnnInGraph(
     const PointType& query, PointKnnGraphType& knn_graph,
     PointDistancePairItem& start_point, PointHeap& k_candidates_heap,
     std::unordered_set<IntIndex>& has_visited_point) {
-  DistanceFuncType distance_func;
   PointHeap traverse_heap(0);
   traverse_heap.Insert(start_point);
   k_candidates_heap.Insert(start_point);
@@ -566,7 +653,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindKnnInGraph(
     auto neighbor_iter = point_neighbor.Begin();
     for (; neighbor_iter != point_neighbor.End(); neighbor_iter++) {
       if (has_visited_point.find(neighbor_iter->id) == has_visited_point.end()) {
-        DistanceType dist = distance_func(this->dataset_ptr_->Get(index2key_[neighbor_iter->id]), query);
+        DistanceType dist = distance_func_(this->dataset_ptr_->Get(index2key_[neighbor_iter->id]), query);
         PointDistancePairItem point_dist(neighbor_iter->id, dist);
         int update_count = k_candidates_heap.Insert(point_dist);
         if (update_count > 0) {
