@@ -39,9 +39,6 @@ similar_word_precision
 tags
 
 count.sh
-word_sim_search.sh
-precision_test.sh
-knn_graph.sh
 
 nohup.out
 
