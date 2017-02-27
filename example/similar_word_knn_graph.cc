@@ -108,42 +108,74 @@ int main() {
   int point_dim = CreateDataset("data/word_rep_data", dataset_ptr);
   CreateDataset("data/word_rep_query", querys_ptr);
 #elif defined(LARGE_DATA_TEST)
-  int point_dim = CreateDataset("data/glove.twitter.27B.100d.txt_data", dataset_ptr);
-  CreateDataset("data/glove.twitter.27B.100d.txt_query", querys_ptr);
+  int point_dim = CreateDataset("data/glove.twitter.27B.100d.txt", dataset_ptr, querys_ptr, query_ratio);
 #endif
   LogTime("end read dataset");
   
+  //CosineBruteForceIndexPtr<float> truth_index_ptr(new CosineBruteForceIndex<float>(dataset_ptr));
   CosineGraphIndexPtr<float> graph_index_ptr(new CosineGraphIndex<float>(dataset_ptr));
   util::GraphIndexParameter param;
   param.point_neighbor_num = 10;
   param.bucket_key_point_num = 10;
-  param.bucket_neighbor_num = 12;
+  param.bucket_neighbor_num = 10;
 #if defined(LITTLE_DATA_TEST)
   param.min_bucket_size = 50;
   param.max_bucket_size = 200;
 #elif defined(LARGE_DATA_TEST)
-  param.min_bucket_size = 50;
-  param.max_bucket_size = 500;
+  param.min_bucket_size = 500;
+  param.max_bucket_size = 2000;
 #endif
   BaseEncoderPtr<PointVector<float> > 
-      binary_encoder_ptr(new BinaryEncoder<PointVector<float>, float>(point_dim, 12));
+      binary_encoder_ptr(new BinaryEncoder<PointVector<float>, float>(point_dim, 10));
 
   LogTime("start build index");
   graph_index_ptr->Build(param, binary_encoder_ptr);
   LogTime("end build index");
 
+  unordered_map<string, vector<string> > ground_truth; 
+  ReadGroundTruth("data/word_rep_data_result", ground_truth);
+  vector<string> actual_result;
   vector<string> graph_result;
+  vector<string> result_intersection;
   int k = 10;
+  int hit_count = 0;
   auto iter = dataset_ptr->Begin();
+  //ofstream true_file("word_rep_data_result");
   LogTime("start query search");
-  for(int query_id = 0; iter != querys_ptr->End(); iter++, query_id++) {
-    if (query_id % 500 == 0) {
-      LogTime("finish search");
+  //for(int query_id = 0; iter != querys_ptr->End(); iter++, query_id++) {
+  for(int query_id = 0; iter != dataset_ptr->End(); iter++, query_id++) {
+    if (query_id % 10000 == 0) {
+      LogTime("ground truth test ");
       cout << query_id << endl;
     }
-    graph_index_ptr->SearchKnn(iter->second, k, graph_result);
+    /*
+    truth_index_ptr->SearchKnn(iter->second, k, actual_result);
+    true_file << iter->first << " ";
+    for (int i = 1; i < actual_result.size(); i++) {
+      true_file << actual_result[i]<< " ";
+    }
+    true_file << endl;
+    */
+    
+    graph_index_ptr->GraphKnn(iter->first, k, graph_result);
+    
+    actual_result.clear();
+    //actual_result = ground_truth[iter->first];
+    actual_result.insert(actual_result.end(), ground_truth[iter->first].begin(), 
+                                              ground_truth[iter->first].begin()+k);
+    sort(actual_result.begin(), actual_result.end());
+    sort(graph_result.begin(), graph_result.end());
+
+    result_intersection.clear();
+    set_intersection(actual_result.begin(), actual_result.end(), 
+                     graph_result.begin(), graph_result.end(), 
+                     back_inserter(result_intersection));
+    int cur_hit_count = result_intersection.size();
+    hit_count += cur_hit_count;
+    //cout << "precision: " << cur_hit_count * 1.0 / k << endl << endl;
   }
   LogTime("end query search");
+  cout << "average precision: " << hit_count * 1.0 / (k *dataset_ptr->Size()) << endl;
 
   return 0;
 }
