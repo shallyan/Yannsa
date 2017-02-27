@@ -132,7 +132,7 @@ int main() {
   LogTime("end build index");
 
   unordered_map<string, vector<string> > ground_truth; 
-  ReadGroundTruth("data/word_rep_data_result", ground_truth);
+  ReadGroundTruth("data/word_rep_result", ground_truth);
   vector<string> actual_result;
   vector<string> graph_result;
   vector<string> result_intersection;
