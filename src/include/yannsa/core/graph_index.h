@@ -8,6 +8,7 @@
 #include "yannsa/util/parameter.h"
 #include "yannsa/util/base_encoder.h"
 #include "yannsa/util/point_pair_distance_table.h"
+#include "yannsa/util/logging.h"
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
@@ -152,6 +153,10 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
                         PointDistancePairItem& start_point, PointHeap& k_candidates_heap, 
                         std::unordered_set<IntIndex>& has_visited_point); 
 
+    template <typename PointKnnGraphType>
+    void FindGreedyKnnInGraph(const PointType& query, PointKnnGraphType& knn_graph,
+                        PointDistancePairItem& start_point, PointHeap& k_candidates_heap, 
+                        std::unordered_set<IntIndex>& has_visited_point); 
   private:
     std::vector<std::string> index2key_;
     ContinuesPointKnnGraph all_point_knn_graph_;
@@ -207,7 +212,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
     std::cout << "after merge size " << bucket2point.size() << std::endl;
   }
 
-  std::cout << "merge done" << std::endl;
+  util::Log("merge done");
 
   // print bucket num
   /*
@@ -220,7 +225,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   // build point knn graph
   BuildAllBucketsPointsKnnGraph(bucket2point);
 
-  std::cout << "build point knn graph done" << std::endl;
+  util::Log("build all point knn graph done");
 
   // build bucket knn graph
   BucketList bucket_list, to_split_bucket_list, to_merge_bucket_list;
@@ -237,7 +242,16 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
                        index_param.bucket_neighbor_num,
                        bucket_knn_graph);
 
-  std::cout << "start lsh search" << std::endl;
+  // reverse knn for each data 
+  std::unordered_map<IntIndex, std::unordered_set<IntIndex> > point_reverse_neighbor;
+  for (IntIndex point_id = 0; point_id < all_point_knn_graph_.size(); point_id++) {
+    PointHeap& neighbor_heap = all_point_knn_graph_[point_id];
+    for (auto iter = neighbor_heap.Begin(); iter != neighbor_heap.End(); iter++) {
+      point_reverse_neighbor[iter->id].insert(point_id);
+    }
+  }
+
+  util::Log("start lsh search");
   std::unordered_map<IntCode, std::unordered_set<IntCode> > has_visited_bucket;
   int cc_count = 0;
   for (auto& bucket_id : bucket_list) {
@@ -251,8 +265,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
       neighbor_buckets_heap.Pop();
       IntIndex neighbor_bucket_id = neighbor_dist.id;
 
-      // whether neighbor_bucket_id needs to be visited
       /*
+      // whether neighbor_bucket_id needs to be visited
       bool need_visit = true;
       for (auto visit_bucket_id : has_visited_bucket[bucket_id]) {
         if (has_visited_bucket[visit_bucket_id].find(neighbor_bucket_id) != has_visited_bucket[visit_bucket_id].end()) {
@@ -270,7 +284,17 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
       auto& start_point_vec = GetPoint(start_point_id);
 
       // search current bucket points in neighbor bucket
+      std::unordered_set<IntIndex> pass_point;
       for (auto& point_id : bucket2point[bucket_id]) {
+        if (pass_point.find(point_id) != pass_point.end()) {
+          continue;
+        }
+
+        auto iter = point_reverse_neighbor[point_id].begin();
+        for (; iter != point_reverse_neighbor[point_id].end(); iter++) {
+          pass_point.insert(*iter);
+        }
+
         PointHeap k_candidates_heap(index_param.point_neighbor_num);
         std::unordered_set<IntIndex> has_visited_point;
 
@@ -281,7 +305,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
         has_visited_point.insert(start_point_id);
       
         k_candidates_heap.Insert(start_point_dist);
-        FindKnnInGraph(point_vec,
+        FindGreedyKnnInGraph(point_vec,
                        all_point_knn_graph_,
                        start_point_dist, k_candidates_heap,
                        has_visited_point); 
@@ -297,6 +321,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
     }
   }
 
+  util::Log("end lsh search");
   // simple refine
   for (int loop = 0; loop < 5; loop ++) {
   for (int i = 0; i < all_point_knn_graph_.size(); i++) {
@@ -315,6 +340,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
     }
   }
   }
+  util::Log("end refine ");
+
 
   /*
   // build key point knn graph
@@ -667,6 +694,36 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindKnnInGraph(
         }
         has_visited_point.insert(neighbor_iter->id);
       }
+    }
+  }
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
+template <typename PointKnnGraphType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindGreedyKnnInGraph(
+    const PointType& query, PointKnnGraphType& knn_graph,
+    PointDistancePairItem& start_point, PointHeap& k_candidates_heap,
+    std::unordered_set<IntIndex>& has_visited_point) {
+  PointHeap traverse_heap(1);
+  traverse_heap.Insert(start_point);
+  k_candidates_heap.Insert(start_point);
+  while (true) {
+    IntIndex cur_nearest_point = traverse_heap.Front().id;
+
+    PointHeap& point_neighbor = knn_graph[cur_nearest_point];
+    auto neighbor_iter = point_neighbor.Begin();
+    int update_count = 0;
+    for (; neighbor_iter != point_neighbor.End(); neighbor_iter++) {
+      if (has_visited_point.find(neighbor_iter->id) == has_visited_point.end()) {
+        DistanceType dist = distance_func_(GetPoint(neighbor_iter->id), query);
+        PointDistancePairItem point_dist(neighbor_iter->id, dist);
+        k_candidates_heap.Insert(point_dist);
+        update_count += traverse_heap.Insert(point_dist);
+        has_visited_point.insert(neighbor_iter->id);
+      }
+    }
+    if (update_count == 0) {
+      break;
     }
   }
 }
