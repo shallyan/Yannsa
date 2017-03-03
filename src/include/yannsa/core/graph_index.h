@@ -377,9 +377,9 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
 
       // for thread safe
       Bucket2Point::const_iterator bucket_key_iter = bucket2key_point_.find(neighbor_bucket_id);
-      PointList& start_point_list = bucket_key_iter->second;
+      const PointList& start_point_list = bucket_key_iter->second;
       Bucket2Point::const_iterator bucket_point_iter = bucket2point.find(bucket_id);
-      PointList& bucket_point_list = bucket_point_list->second;
+      const PointList& bucket_point_list = bucket_point_iter->second;
 
       for (auto& point_id : bucket_point_list) {
         /*
