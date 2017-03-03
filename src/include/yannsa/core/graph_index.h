@@ -9,6 +9,8 @@
 #include "yannsa/util/base_encoder.h"
 #include "yannsa/util/point_pair_distance_table.h"
 #include "yannsa/util/logging.h"
+#include "yannsa/util/random_generator.h"
+#include <omp.h>
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
@@ -32,15 +34,18 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
   private:
     // bucket
     typedef std::vector<IntCode> BucketList;
+    typedef std::unordered_set<IntCode> BucketSet;
     typedef std::unordered_map<IntCode, IntCode> MergedBucketMap; 
     typedef std::unordered_map<IntCode, std::vector<IntIndex> > Bucket2Point; 
     // bucket knn graph : MAP --> discrete and not too many items
     typedef PointDistancePair<IntCode, IntCode> BucketDistancePairItem;
     typedef util::Heap<BucketDistancePairItem> BucketHeap;
     typedef std::unordered_map<IntCode, BucketHeap> BucketKnnGraph;
+    typedef std::unordered_map<IntCode, std::unordered_set<IntCode> > Bucket2ConnectedBuckets;
 
     // point
     typedef std::vector<IntIndex> PointList;
+    typedef std::unordered_set<IntIndex> PointSet;
     // point knn graph : VECTOR --> continues
     typedef PointDistancePair<IntIndex, DistanceType> PointDistancePairItem; 
     typedef util::Heap<PointDistancePairItem> PointHeap;
@@ -171,55 +176,45 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
     void ConnectBucketPoints(Bucket2Point& bucket2point, int point_neighbor_num, int bucket_neighbor_num); 
 
-    void NNBiExpansion() {
-      // two side knn for each data 
-      for (int i = 0; i < 3; i++) {
-      Point2PointSet point_bidirection_neighbor;
-      for (IntIndex point_id = 0; point_id < all_point_knn_graph_.size(); point_id++) {
-        PointHeap& neighbor_heap = all_point_knn_graph_[point_id];
-        for (auto iter = neighbor_heap.Begin(); iter != neighbor_heap.End(); iter++) {
-          point_bidirection_neighbor[iter->id].insert(point_id);
-          point_bidirection_neighbor[point_id].insert(iter->id);
-        }
-      }
+    void Sample(PointSet& point_set, PointList& sampled_point_list, int sample_num); 
 
-      int update_count = 0;
-      for (IntIndex point_id = 0; point_id < point_bidirection_neighbor.size(); point_id++) {
-        for (IntIndex n1 : point_bidirection_neighbor[point_id]) {
-          for (IntIndex n2 : point_bidirection_neighbor[n1]) {
-            if (point_id <= n2) {
-              continue;
-            }
-            DistanceType dist = distance_func_(GetPoint(point_id), GetPoint(n2));
-            update_count += all_point_knn_graph_[point_id].Insert(PointDistancePairItem(n2, dist));
-            update_count += all_point_knn_graph_[n2].Insert(PointDistancePairItem(point_id, dist));
+    void RefineByExpansion(int iter_num/*, float precision*/) {
+      IntIndex max_point_id = all_point_knn_graph_.size();
+      for (int loop = 0; loop < iter_num; loop++) {
+        // parallel
+        // 1 step neighbor
+        Point2PointSet point2neighbor;
+        for (IntIndex point_id = 0; point_id < max_point_id; point_id++) {
+          PointHeap& neighbor_heap = all_point_knn_graph_[point_id];
+          for (auto iter = neighbor_heap.Begin(); iter != neighbor_heap.End(); iter++) {
+            point2neighbor[point_id].insert(iter->id);
           }
         }
-      }
-      if (update_count == 0) {
-        break;
-      }
-      }
-    }
-
-    void NNExpansion(int iter_num) {
-      for (int loop = 0; loop < iter_num; loop ++) {
-        for (int i = 0; i < all_point_knn_graph_.size(); i++) {
-          PointHeap candidates_heap(0);
-          PointHeap& cur_neighbor = all_point_knn_graph_[i];
-          for (auto iter = cur_neighbor.Begin(); iter != cur_neighbor.End(); iter++) {
-            candidates_heap.Insert(*iter);
-            // consider neighbor point
-            for (auto iter2 = all_point_knn_graph_[iter->id].Begin();
-                      iter2 != all_point_knn_graph_[iter->id].End(); iter2++) {
-              DistanceType dist = distance_func_(GetPoint(iter2->id), GetPoint(i));
-              candidates_heap.Insert(PointDistancePairItem(iter2->id, dist));
+          // 2 step neighbor
+        Point2PointSet point2two_step_neighbor;
+        for (IntIndex point_id = 0; point_id < max_point_id; point_id++) {
+          PointSet& step1_neighbor = point2neighbor[point_id];
+          for (IntIndex step1_point : step1_neighbor) {
+            for (IntIndex step2_point : point2neighbor[step1_point]) {
+              if (step1_neighbor.find(step2_point) == step1_neighbor.end()) {
+                point2two_step_neighbor[point_id].insert(step2_point);
+              }
             }
           }
-          // update
-          for (auto iter3 = candidates_heap.Begin(); iter3 != candidates_heap.End(); iter3++) {
-            cur_neighbor.Insert(*iter3);
+        }
+
+        int update_count = 0;
+        // parallel
+        for (IntIndex point_id = 0; point_id < max_point_id; point_id++) {
+          PointSet& step2_neighbor = point2two_step_neighbor[point_id];
+          for (IntIndex step2_point : step2_neighbor) {
+            DistanceType dist = distance_func_(GetPoint(point_id), GetPoint(step2_point));
+            update_count += all_point_knn_graph_[point_id].Insert(PointDistancePairItem(step2_point, dist));
+            //update_count += all_point_knn_graph_[neighbor_id].Insert(PointDistancePairItem(point_id, dist));
           }
+        }
+        if (update_count == 0) {
+          break;
         }
       }
     }
@@ -232,6 +227,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
         }
       }
     }
+
   private:
     std::vector<std::string> index2key_;
     ContinuesPointKnnGraph all_point_knn_graph_;
@@ -270,11 +266,12 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   //FindBucketKeyPoints(bucket2point, index_param.bucket_neighbor_num);
   FindBucketKeyPoints(bucket2point, 1);
 
-  ConnectBucketPoints(bucket2point, index_param.point_neighbor_num, index_param.bucket_neighbor_num); 
+  ConnectBucketPoints(bucket2point, index_param.point_neighbor_num, index_param.bucket_neighbor_num-5); 
 
   util::Log("start refine ");
-  NNBiExpansion();
-  //NNExpansion(3);
+
+  //RefineByExpansion(2);
+
   util::Log("end refine ");
 
   /*
@@ -303,6 +300,20 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::Sample(
+    PointSet& point_set, PointList& sampled_point_list, int sample_num) {
+  util::IntRandomGenerator rg(0, sample_num-1);
+  for (auto iter = point_set.begin(); iter != point_set.end(); iter++) {
+    if (sampled_point_list.size() < sample_num) {
+      sampled_point_list.push_back(*iter);
+    }
+    else {
+      sampled_point_list[rg.Random()] = *iter;
+    }
+  }
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
     Bucket2Point& bucket2point, int point_neighbor_num, int bucket_neighbor_num) {
   // reverse knn for each data 
@@ -318,21 +329,51 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
                        bucket_neighbor_num, bucket_knn_graph);
   util::Log("build bucket knn graph done");
 
+  // get each bucket connect bucket
+  util::PointPairTable<IntCode> connect_pair_set;
+  for (auto& bucket_id : bucket_list) {
+    auto& neighbor_buckets_heap = bucket_knn_graph[bucket_id];
+    for (auto iter = neighbor_buckets_heap.Begin();
+              iter != neighbor_buckets_heap.End(); iter++) {
+      connect_pair_set.Insert(bucket_id, iter->id);
+    }
+  }
+  
+  util::PointPairList<IntCode> connect_pair_list(connect_pair_set.Begin(), connect_pair_set.End());
+  std::vector<bool> connect_pair_flag(connect_pair_list.size(), true);
+  std::vector<util::PointPairList<IntCode> > batch_connect_pairs;
+  while (true) {
+    util::PointPairList<IntCode> one_batch_pair_list;
+    BucketSet con_bucket_set;
+    for (int con_pair_id = 0; con_pair_id < connect_pair_flag.size(); con_pair_id++) {
+      if (connect_pair_flag[con_pair_id]) {
+        auto& cur_pair = connect_pair_list[con_pair_id];
+        if (con_bucket_set.find(cur_pair.first) == con_bucket_set.end() &&
+            con_bucket_set.find(cur_pair.second) == con_bucket_set.end()) {
+          con_bucket_set.insert(cur_pair.first);
+          con_bucket_set.insert(cur_pair.second);
+          connect_pair_flag[con_pair_id] = false;
+          one_batch_pair_list.push_back(cur_pair);
+        }
+      }
+    }
+    if (one_batch_pair_list.size() == 0) {
+      break;
+    }
+    batch_connect_pairs.push_back(one_batch_pair_list);
+  }
+
   util::Log("start lsh search");
   int cc_count = 0;
-  for (auto& bucket_id : bucket_list) {
+  for (util::PointPairList<IntCode>& one_batch_pair_list : batch_connect_pairs) {
     cc_count++;
     if (cc_count % 50 == 0) {
       std::cout << "finish lsh buckets " << cc_count << std::endl;
     }
-    auto& neighbor_buckets_heap = bucket_knn_graph[bucket_id];
-    while (neighbor_buckets_heap.Size() > 0) {
-      auto& neighbor_dist = neighbor_buckets_heap.Front();
-      neighbor_buckets_heap.Pop();
-      IntIndex neighbor_bucket_id = neighbor_dist.id;
-
-      // search current bucket points in neighbor bucket
-      std::unordered_set<IntIndex> pass_point;
+    for (auto& connect_pair : one_batch_pair_list) {
+      IntCode bucket_id = connect_pair.first;
+      IntCode neighbor_bucket_id = connect_pair.second;
+      PointSet pass_point;
       for (auto& point_id : bucket2point[bucket_id]) {
         if (pass_point.find(point_id) != pass_point.end()) {
           continue;
@@ -357,27 +398,20 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
                              has_visited_point); 
 
         // update
-        int update_count = 0;
-        auto& neighbor_heap = all_point_knn_graph_[point_id];
-        {
-          auto iter = k_candidates_heap.Begin();
-          for (; iter != k_candidates_heap.End(); iter++) {
-            update_count += neighbor_heap.Insert(*iter);
-          }
+        auto update_iter = k_candidates_heap.Begin();
+        for (; update_iter != k_candidates_heap.End(); update_iter++) {
+          all_point_knn_graph_[point_id].Insert(*update_iter);
+          all_point_knn_graph_[update_iter->id].Insert(PointDistancePairItem(point_id, update_iter->distance));
         }
 
+        /*
         if (update_count > 0) {
           auto iter = point_reverse_neighbor[point_id].begin();
           for (; iter != point_reverse_neighbor[point_id].end(); iter++) {
             pass_point.insert(*iter);
           }
         }
-        else {
-          auto iter = neighbor_heap.Begin();
-          for (; iter != neighbor_heap.End(); iter++) {
-            pass_point.insert(iter->id);
-          }
-        }
+        */
       }
     }
   }

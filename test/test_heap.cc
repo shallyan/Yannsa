@@ -18,14 +18,14 @@ TEST(HeapTest, Insert) {
   h.Insert(10);
   ASSERT_EQ(h.Size(), 1);
 
-  int items[] = {3, 2, 1, 5, 2, 6, 3, 6};
+  int items[] = {3, 2, 1, 5, 6};
   for (int& item : items) {
     h.Insert(item);
   }
   ASSERT_EQ(h.Size(), 3);
 
   Heap<int>::Iterator iter = h.Begin();
-  ASSERT_EQ(*iter, 2);
+  ASSERT_EQ(*iter, 3);
 
   h.Sort();
   Heap<int>::Iterator iter2 = h.Begin();
@@ -40,6 +40,9 @@ TEST(HeapTest, InsertObj) {
     Obj(int n, string s) : num(n), str(s) {}
     inline bool operator<(const Obj& obj_a) const {
       return str < obj_a.str;
+    }
+    inline bool operator==(const Obj& obj_a) const {
+      return str == obj_a.str;
     }
   };
 
