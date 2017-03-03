@@ -409,11 +409,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
         // update
         auto update_iter = k_candidates_heap.Begin();
         for (; update_iter != k_candidates_heap.End(); update_iter++) {
-          #pragma omp critical
-          {
             all_point_knn_graph_[point_id].Insert(*update_iter);
             all_point_knn_graph_[update_iter->id].Insert(PointDistancePairItem(point_id, update_iter->distance));
-          }
         }
 
         /*
