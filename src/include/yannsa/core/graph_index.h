@@ -370,17 +370,24 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
     if (cc_count % 50 == 0) {
       std::cout << "finish lsh buckets " << cc_count << std::endl;
     }
-    #pragma omp parallel for schedule(dynamic, 1)
+    #pragma omp parallel for schedule(dynamic, 5)
     for (int pair_id = 0; pair_id < one_batch_pair_list.size(); pair_id++) {
       IntCode bucket_id = one_batch_pair_list[pair_id].first;
       IntCode neighbor_bucket_id = one_batch_pair_list[pair_id].second;
-      PointSet pass_point;
-      for (auto& point_id : bucket2point[bucket_id]) {
+
+      #pragma omp critical
+      PointList& start_point_list = bucket2key_point_[neighbor_bucket_id];
+      #pragma omp critical
+      PointList& bucket_point_list = bucket2point[bucket_id];
+
+      for (auto& point_id : bucket_point_list) {
+        /*
+        PointSet pass_point;
         if (pass_point.find(point_id) != pass_point.end()) {
           continue;
         }
+        */
 
-        PointList& start_point_list = bucket2key_point_[neighbor_bucket_id];
         IntIndex start_point_id = start_point_list[0];
         auto& start_point_vec = GetPoint(start_point_id);
 
