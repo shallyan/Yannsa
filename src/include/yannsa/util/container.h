@@ -43,8 +43,11 @@ class Container {
       return index2key_point_pair_.end();
     }
 
+    // thread-safe get
     inline const PointType& Get(const std::string& key) {
-      return index2key_point_pair_[key2index_[key]].second; 
+      // user ensure existence
+      std::unordered_map<std::string, IntIndex>::const_iterator iter = key2index_.find(key);
+      return index2key_point_pair_[iter->second].second; 
     }
 
   private:

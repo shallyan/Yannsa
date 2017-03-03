@@ -375,10 +375,11 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
       IntCode bucket_id = one_batch_pair_list[pair_id].first;
       IntCode neighbor_bucket_id = one_batch_pair_list[pair_id].second;
 
-      #pragma omp critical
-      PointList& start_point_list = bucket2key_point_[neighbor_bucket_id];
-      #pragma omp critical
-      PointList& bucket_point_list = bucket2point[bucket_id];
+      // for thread safe
+      Bucket2Point::const_iterator bucket_key_iter = bucket2key_point_.find(neighbor_bucket_id);
+      PointList& start_point_list = bucket_key_iter->second;
+      Bucket2Point::const_iterator bucket_point_iter = bucket2point.find(bucket_id);
+      PointList& bucket_point_list = bucket_point_list->second;
 
       for (auto& point_id : bucket_point_list) {
         /*
@@ -392,7 +393,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
         auto& start_point_vec = GetPoint(start_point_id);
 
         PointHeap k_candidates_heap(point_neighbor_num);
-        std::unordered_set<IntIndex> has_visited_point;
+        PointSet has_visited_point;
 
         auto& point_vec = GetPoint(point_id);
         DistanceType dist = distance_func_(start_point_vec, point_vec);
@@ -408,8 +409,11 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
         // update
         auto update_iter = k_candidates_heap.Begin();
         for (; update_iter != k_candidates_heap.End(); update_iter++) {
-          all_point_knn_graph_[point_id].Insert(*update_iter);
-          all_point_knn_graph_[update_iter->id].Insert(PointDistancePairItem(point_id, update_iter->distance));
+          #pragma omp critical
+          {
+            all_point_knn_graph_[point_id].Insert(*update_iter);
+            all_point_knn_graph_[update_iter->id].Insert(PointDistancePairItem(point_id, update_iter->distance));
+          }
         }
 
         /*
