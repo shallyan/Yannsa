@@ -1,6 +1,5 @@
 CXX=g++-6 
-CXX_FLAGS=-std=c++11 -O3 -march=native
-LD_FLAGS=-pthread
+CXX_FLAGS=-std=c++11 -O3 -march=native -pthread -fopenmp
 
 YANNSA_INC=src/include/
 THIRD_PARTY_INC=third_party/
@@ -12,7 +11,7 @@ GTEST_INC=$(GTEST_PATH)/include/
 
 UNIT_TEST_TARGET=yannsa_test
 UNIT_TEST_FLAGS=$(CXX_FLAGS)
-UNIT_TEST_LD_FLAGS=$(LD_FLAGS) -L $(GTEST_LIB) -lgtest -lgtest_main
+UNIT_TEST_LD_FLAGS=-L $(GTEST_LIB) -lgtest -lgtest_main
 UNIT_TEST_ROOT=test
 UNIT_TEST_OBJ_ROOT=build_$(UNIT_TEST_ROOT)
 UNIT_TEST_SRC=$(wildcard $(UNIT_TEST_ROOT)/*.cc)
