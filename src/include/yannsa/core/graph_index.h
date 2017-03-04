@@ -317,8 +317,10 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
     Bucket2Point& bucket2point, int point_neighbor_num, int bucket_neighbor_num) {
   // reverse knn for each data 
+  /*
   Point2PointSet point_reverse_neighbor;
   GetPointReverseNeighbors(point_reverse_neighbor); 
+  */
 
   BucketList bucket_list;
   GetBucketList(bucket2point, bucket_list);
@@ -370,6 +372,9 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
     if (cc_count % 50 == 0) {
       std::cout << "finish lsh buckets " << cc_count << std::endl;
     }
+    
+    ContinuesPointKnnGraph to_update_result(all_point_knn_graph_.size(), PointHeap(point_neighbor_num));
+
     #pragma omp parallel for schedule(dynamic, 5)
     for (int pair_id = 0; pair_id < one_batch_pair_list.size(); pair_id++) {
       IntCode bucket_id = one_batch_pair_list[pair_id].first;
@@ -382,17 +387,10 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
       const PointList& bucket_point_list = bucket_point_iter->second;
 
       for (auto& point_id : bucket_point_list) {
-        /*
-        PointSet pass_point;
-        if (pass_point.find(point_id) != pass_point.end()) {
-          continue;
-        }
-        */
-
         IntIndex start_point_id = start_point_list[0];
         auto& start_point_vec = GetPoint(start_point_id);
 
-        PointHeap k_candidates_heap(point_neighbor_num);
+        PointHeap& candidates_heap = to_update_result[point_id];
         PointSet has_visited_point;
 
         auto& point_vec = GetPoint(point_id);
@@ -400,20 +398,24 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
         PointDistancePairItem start_point_dist(start_point_id, dist);
         has_visited_point.insert(start_point_id);
       
-        k_candidates_heap.Insert(start_point_dist);
+        candidates_heap.Insert(start_point_dist);
         FindKnnInGraph(point_vec,
                              all_point_knn_graph_,
-                             start_point_dist, k_candidates_heap,
+                             start_point_dist, candidates_heap,
                              has_visited_point); 
 
-        // update
+        /*
+        PointSet pass_point;
+        if (pass_point.find(point_id) != pass_point.end()) {
+          continue;
+        }
+
         auto update_iter = k_candidates_heap.Begin();
         for (; update_iter != k_candidates_heap.End(); update_iter++) {
             all_point_knn_graph_[point_id].Insert(*update_iter);
             all_point_knn_graph_[update_iter->id].Insert(PointDistancePairItem(point_id, update_iter->distance));
         }
 
-        /*
         if (update_count > 0) {
           auto iter = point_reverse_neighbor[point_id].begin();
           for (; iter != point_reverse_neighbor[point_id].end(); iter++) {
@@ -421,6 +423,18 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
           }
         }
         */
+      }
+    }
+    // update
+    #pragma omp parallel for schedule(dynamic, 5)
+    for (int point_id = 0; point_id < to_update_result.size(); point_id++) {
+      PointHeap& candidate_heap = to_update_result[point_id];
+      if (candidate_heap.Size() == 0) {
+        continue;
+      }
+      for (auto iter = candidate_heap.Begin(); iter != candidate_heap.End(); iter++) {
+        all_point_knn_graph_[point_id].Insert(*iter);
+        //all_point_knn_graph_[iter->id].Insert(PointDistancePairItem(point_id, iter->distance));
       }
     }
   }
