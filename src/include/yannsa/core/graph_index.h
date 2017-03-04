@@ -45,6 +45,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
     // point
     typedef std::vector<IntIndex> PointList;
+    typedef std::vector<IntCode> PointCodeList;
     typedef std::unordered_set<IntIndex> PointSet;
     // point knn graph : VECTOR --> continues
     typedef PointDistancePair<IntIndex, DistanceType> PointDistancePairItem; 
@@ -71,6 +72,8 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
       bucket2key_point_.clear();
       merged_bucket_map_.clear();
     }
+
+    void Init(int point_neighbor_num);
 
     void SearchKnn(const PointType& query, 
                    int k, 
@@ -112,8 +115,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
       return sizeof(IntCode) * CHAR_BIT / 2; 
     }
 
-    void Encode2Buckets(Bucket2Point& bucket2point, 
-                        int point_neighbor_num); 
+    void Encode2Buckets(Bucket2Point& bucket2point); 
 
     void SplitMergeBuckets(Bucket2Point& bucket2point, 
                            int bucket_neighbor_num,
@@ -234,18 +236,33 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 };
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::Init(int point_neighbor_num) {
+  typename Dataset::Iterator iter = this->dataset_ptr_->Begin();
+  while (iter != this->dataset_ptr_->End()) {
+    std::string& key = iter->first;
+
+    // record point key and index
+    IntIndex point_id = index2key_.size();
+    index2key_.push_back(key);
+    all_point_knn_graph_.push_back(PointHeap(point_neighbor_num));
+
+    iter++;
+  }
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
     const util::GraphIndexParameter& index_param,
     util::BaseEncoderPtr<PointType>& encoder_ptr) { 
-  Clear();
-
-  // record encoder for query search
   encoder_ptr_ = encoder_ptr;
+
+  Clear();
+  Init(index_param.point_neighbor_num);
 
   // encode
   Bucket2Point bucket2point;
   util::Log("before encode");
-  Encode2Buckets(bucket2point, index_param.point_neighbor_num); 
+  Encode2Buckets(bucket2point);
   util::Log("encode done");
 
   // get bucket list
@@ -402,24 +419,19 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::Encode2Buckets(
-    Bucket2Point& bucket2point, 
-    int point_neighbor_num) { 
+    Bucket2Point& bucket2point) { 
   bucket2point.clear();
-  typename Dataset::Iterator iter = this->dataset_ptr_->Begin();
-  while (iter != this->dataset_ptr_->End()) {
-    std::string& key = iter->first;
-    PointType& point = iter->second;
+  // encode
+  PointCodeList point_code_list(index2key_.size());
+  #pragma omp parallel for schedule(static)
+  for (IntIndex point_id = 0; point_id < index2key_.size(); point_id++) {
+    IntCode point_code = encoder_ptr_->Encode(GetPoint(point_id));
+    point_code_list[point_id] = point_code;
+  }
 
-    // record point key and index
-    IntIndex point_index = index2key_.size();
-    index2key_.push_back(key);
-    all_point_knn_graph_.push_back(PointHeap(point_neighbor_num));
-
-    // encode point
-    IntCode point_code = encoder_ptr_->Encode(point);
-    bucket2point[point_code].push_back(point_index);
-
-    iter++;
+  for (IntIndex point_id = 0; point_id < point_code_list.size(); point_id++) {
+    IntCode point_code = point_code_list[point_id];
+    bucket2point[point_code].push_back(point_id);
   }
 }
 
