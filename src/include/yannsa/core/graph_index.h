@@ -166,13 +166,8 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
     template <typename PointKnnGraphType>
     void FindKnnInGraph(const PointType& query, PointKnnGraphType& knn_graph,
-                        PointDistancePairItem& start_point, PointHeap& k_candidates_heap, 
-                        std::unordered_set<IntIndex>& has_visited_point); 
-
-    template <typename PointKnnGraphType>
-    void FindGreedyKnnInGraph(const PointType& query, PointKnnGraphType& knn_graph,
-                        PointDistancePairItem& start_point, PointHeap& k_candidates_heap, 
-                        std::unordered_set<IntIndex>& has_visited_point); 
+                        IntIndex start_point_id, PointHeap& k_candidates_heap, 
+                        PointSet& visited_points, const PointSet& stop_points); 
 
     void ConnectBucketPoints(Bucket2Point& bucket2point, int point_neighbor_num, int bucket_neighbor_num); 
 
@@ -366,16 +361,10 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
   }
 
   util::Log("start lsh search");
-  int cc_count = 0;
   for (util::PointPairList<IntCode>& one_batch_pair_list : batch_connect_pairs) {
-    cc_count++;
-    if (cc_count % 50 == 0) {
-      std::cout << "finish lsh buckets " << cc_count << std::endl;
-    }
-    
-    ContinuesPointKnnGraph to_update_result(all_point_knn_graph_.size(), PointHeap(point_neighbor_num));
+    ContinuesPointKnnGraph to_update_candidates(all_point_knn_graph_.size(), PointHeap(point_neighbor_num));
 
-    #pragma omp parallel for schedule(dynamic, 5)
+    #pragma omp parallel for schedule(dynamic, 20)
     for (int pair_id = 0; pair_id < one_batch_pair_list.size(); pair_id++) {
       IntCode bucket_id = one_batch_pair_list[pair_id].first;
       IntCode neighbor_bucket_id = one_batch_pair_list[pair_id].second;
@@ -386,55 +375,24 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
       Bucket2Point::const_iterator bucket_point_iter = bucket2point.find(bucket_id);
       const PointList& bucket_point_list = bucket_point_iter->second;
 
+      PointSet stop_points(bucket_point_list.begin(), bucket_point_list.end());
       for (auto& point_id : bucket_point_list) {
+        PointSet visited_points;
         IntIndex start_point_id = start_point_list[0];
-        auto& start_point_vec = GetPoint(start_point_id);
-
-        PointHeap& candidates_heap = to_update_result[point_id];
-        PointSet has_visited_point;
-
-        auto& point_vec = GetPoint(point_id);
-        DistanceType dist = distance_func_(start_point_vec, point_vec);
-        PointDistancePairItem start_point_dist(start_point_id, dist);
-        has_visited_point.insert(start_point_id);
-      
-        candidates_heap.Insert(start_point_dist);
-        FindKnnInGraph(point_vec,
+        FindKnnInGraph(GetPoint(point_id),
                              all_point_knn_graph_,
-                             start_point_dist, candidates_heap,
-                             has_visited_point); 
-
-        /*
-        PointSet pass_point;
-        if (pass_point.find(point_id) != pass_point.end()) {
-          continue;
-        }
-
-        auto update_iter = k_candidates_heap.Begin();
-        for (; update_iter != k_candidates_heap.End(); update_iter++) {
-            all_point_knn_graph_[point_id].Insert(*update_iter);
-            all_point_knn_graph_[update_iter->id].Insert(PointDistancePairItem(point_id, update_iter->distance));
-        }
-
-        if (update_count > 0) {
-          auto iter = point_reverse_neighbor[point_id].begin();
-          for (; iter != point_reverse_neighbor[point_id].end(); iter++) {
-            pass_point.insert(*iter);
-          }
-        }
-        */
+                             start_point_id, to_update_candidates[point_id],
+                             visited_points, stop_points); 
       }
     }
+
     // update
-    #pragma omp parallel for schedule(dynamic, 5)
-    for (int point_id = 0; point_id < to_update_result.size(); point_id++) {
-      PointHeap& candidate_heap = to_update_result[point_id];
-      if (candidate_heap.Size() == 0) {
-        continue;
-      }
+    //#pragma omp parallel for schedule(dynamic, 1000)
+    for (int point_id = 0; point_id < to_update_candidates.size(); point_id++) {
+      PointHeap& candidate_heap = to_update_candidates[point_id];
       for (auto iter = candidate_heap.Begin(); iter != candidate_heap.End(); iter++) {
         all_point_knn_graph_[point_id].Insert(*iter);
-        //all_point_knn_graph_[iter->id].Insert(PointDistancePairItem(point_id, iter->distance));
+        all_point_knn_graph_[iter->id].Insert(PointDistancePairItem(point_id, iter->distance));
       }
     }
   }
@@ -764,7 +722,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
   auto key_iter = key_candidates_heap.Begin();
   for (; key_iter != key_candidates_heap.End(); key_iter++) {
     PointHeap k_candidates_heap(k);
-    FindKnnInGraph(query, all_point_knn_graph_, *key_iter, k_candidates_heap, has_visited_point); 
+    //FindKnnInGraph(query, all_point_knn_graph_, *key_iter, k_candidates_heap, has_visited_point, PointSet()); 
     for (auto ii = k_candidates_heap.Begin(); ii != k_candidates_heap.End(); ii++) {
       result_candidates_heap.Insert(*ii);
     }
@@ -782,9 +740,18 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType>
 template <typename PointKnnGraphType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindKnnInGraph(
     const PointType& query, PointKnnGraphType& knn_graph,
-    PointDistancePairItem& start_point, PointHeap& k_candidates_heap,
-    std::unordered_set<IntIndex>& has_visited_point) {
-  PointHeap traverse_heap(0);
+    IntIndex start_point_id, PointHeap& k_candidates_heap,
+    PointSet& visited_points, const PointSet& stop_points) {
+
+  if (visited_points.find(start_point_id) != visited_points.end() || 
+      stop_points.find(start_point_id) != stop_points.end()) { 
+    return;
+  }
+
+  DistanceType start_dist = distance_func_(GetPoint(start_point_id), query);
+  PointDistancePairItem start_point(start_point_id, start_dist);
+
+  PointHeap traverse_heap(1);
   traverse_heap.Insert(start_point);
   k_candidates_heap.Insert(start_point);
   while (traverse_heap.Size() > 0) {
@@ -794,45 +761,19 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindKnnInGraph(
     PointHeap& point_neighbor = knn_graph[cur_nearest_point];
     auto neighbor_iter = point_neighbor.Begin();
     for (; neighbor_iter != point_neighbor.End(); neighbor_iter++) {
-      if (has_visited_point.find(neighbor_iter->id) == has_visited_point.end()) {
-        DistanceType dist = distance_func_(GetPoint(neighbor_iter->id), query);
-        PointDistancePairItem point_dist(neighbor_iter->id, dist);
-        int update_count = k_candidates_heap.Insert(point_dist);
-        if (update_count > 0) {
-          traverse_heap.Insert(point_dist);
-        }
-        has_visited_point.insert(neighbor_iter->id);
+      if (visited_points.find(neighbor_iter->id) != visited_points.end() || 
+          stop_points.find(neighbor_iter->id) != stop_points.end()) { 
+        continue;
       }
-    }
-  }
-}
 
-template <typename PointType, typename DistanceFuncType, typename DistanceType>
-template <typename PointKnnGraphType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindGreedyKnnInGraph(
-    const PointType& query, PointKnnGraphType& knn_graph,
-    PointDistancePairItem& start_point, PointHeap& k_candidates_heap,
-    std::unordered_set<IntIndex>& has_visited_point) {
-  PointHeap traverse_heap(1);
-  traverse_heap.Insert(start_point);
-  k_candidates_heap.Insert(start_point);
-  while (true) {
-    IntIndex cur_nearest_point = traverse_heap.Front().id;
+      DistanceType dist = distance_func_(GetPoint(neighbor_iter->id), query);
+      PointDistancePairItem point_dist(neighbor_iter->id, dist);
 
-    PointHeap& point_neighbor = knn_graph[cur_nearest_point];
-    auto neighbor_iter = point_neighbor.Begin();
-    int update_count = 0;
-    for (; neighbor_iter != point_neighbor.End(); neighbor_iter++) {
-      if (has_visited_point.find(neighbor_iter->id) == has_visited_point.end()) {
-        DistanceType dist = distance_func_(GetPoint(neighbor_iter->id), query);
-        PointDistancePairItem point_dist(neighbor_iter->id, dist);
-        k_candidates_heap.Insert(point_dist);
-        update_count += traverse_heap.Insert(point_dist);
-        has_visited_point.insert(neighbor_iter->id);
+      int update_count = k_candidates_heap.Insert(point_dist);
+      if (update_count > 0) {
+        traverse_heap.Insert(point_dist);
       }
-    }
-    if (update_count == 0) {
-      break;
+      visited_points.insert(neighbor_iter->id);
     }
   }
 }
