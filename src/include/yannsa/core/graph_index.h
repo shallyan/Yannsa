@@ -149,7 +149,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     void BuildAllBucketsPointsKnnGraph(Bucket2Point& bucket2point);
 
     template<typename PointKnnGraphType>
-    void BuildPointsKnnGraph(PointList& point_list, PointKnnGraphType& point_knn_graph); 
+    void BuildPointsKnnGraph(const PointList& point_list, PointKnnGraphType& point_knn_graph); 
 
     void FindBucketKeyPoints(Bucket2Point& bucket2point,
                              int key_point_num);
@@ -592,7 +592,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildBucketsKnnGraph
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 template <typename PointKnnGraphType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildPointsKnnGraph(
-    PointList& point_list,
+    const PointList& point_list,
     PointKnnGraphType& point_knn_graph) {
   for (int i = 0; i < point_list.size(); i++) {
     IntIndex cur_point = point_list[i];
@@ -609,9 +609,12 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildPointsKnnGraph(
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildAllBucketsPointsKnnGraph(
     Bucket2Point& bucket2point) {
-  auto iter = bucket2point.begin(); 
-  for (; iter != bucket2point.end(); iter++) {
-    BuildPointsKnnGraph(iter->second, all_point_knn_graph_);
+  BucketList bucket_list;
+  GetBucketList(bucket2point, bucket_list);
+  #pragma omp parallel for schedule(dynamic, 20)
+  for (int i = 0; i < bucket_list.size(); i++) {
+    Bucket2Point::const_iterator bucket_iter = bucket2point.find(bucket_list[i]);
+    BuildPointsKnnGraph(bucket_iter->second, all_point_knn_graph_);
   }
 }
 
