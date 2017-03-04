@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <ctime>
 
-#define LITTLE_DATA_TEST
+#define LARGE_DATA_TEST 
 
 using namespace std;
 using namespace yannsa;
@@ -117,7 +117,7 @@ int main() {
   util::GraphIndexParameter param;
   param.point_neighbor_num = 10;
   param.bucket_key_point_num = 10;
-  param.bucket_neighbor_num = 12;
+  param.bucket_neighbor_num = 13;
 #if defined(LITTLE_DATA_TEST)
   param.min_bucket_size = 50;
   param.max_bucket_size = 200;
@@ -126,12 +126,13 @@ int main() {
   param.max_bucket_size = 500;
 #endif
   BaseEncoderPtr<PointVector<float> > 
-      binary_encoder_ptr(new BinaryEncoder<PointVector<float>, float>(point_dim, 12));
+      binary_encoder_ptr(new BinaryEncoder<PointVector<float>, float>(point_dim, 13));
 
   LogTime("start build index");
   graph_index_ptr->Build(param, binary_encoder_ptr);
   LogTime("end build index");
 
+  /*
   vector<string> graph_result;
   int k = 10;
   auto iter = querys_ptr->Begin();
@@ -144,6 +145,7 @@ int main() {
     graph_index_ptr->SearchKnn(iter->second, k, graph_result);
   }
   LogTime("end query search");
+  */
 
   return 0;
 }
