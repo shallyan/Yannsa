@@ -275,14 +275,13 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   util::Log("build all point knn graph done");
 
   // find key points in bucket
-  //FindBucketKeyPoints(bucket2point, index_param.bucket_neighbor_num);
-  FindBucketKeyPoints(bucket2point, 1);
+  FindBucketKeyPoints(bucket2point, index_param.bucket_key_point_num);
 
   ConnectBucketPoints(bucket2point, index_param.point_neighbor_num, index_param.bucket_neighbor_num); 
 
   util::Log("start refine ");
 
-  //RefineByExpansion(2);
+  //RefineByExpansion(10);
 
   util::Log("end refine ");
 
@@ -395,7 +394,19 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
       PointSet stop_points(bucket_point_list.begin(), bucket_point_list.end());
       for (auto& point_id : bucket_point_list) {
         PointSet visited_points;
+        /*
+        int near_id; 
+        DistanceType near_dist = 100000.0;
+        for (auto s_point : start_point_list) {
+          auto new_dist = distance_func_(GetPoint(s_point), GetPoint(point_id)); 
+          if (new_dist < near_dist) {
+            near_dist = new_dist;
+            near_id = s_point;
+          }
+        }
+        */
         IntIndex start_point_id = start_point_list[0];
+        //IntIndex start_point_id = near_id;
         FindKnnInGraph(GetPoint(point_id),
                              all_point_knn_graph_,
                              start_point_id, to_update_candidates[point_id],
@@ -635,36 +646,62 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindBucketKeyPoints(
     Bucket2Point& bucket2point,
     int key_point_num) {
   // count points in degree
-  std::unordered_map<IntIndex, int> point_in_degree_count;
-  for (auto& nearest_neighbor : all_point_knn_graph_) {
+  std::vector<int> point_in_degree_count(all_point_knn_graph_.size(), 0);
+  #pragma omp parallel for schedule(static)
+  for (IntIndex point_id = 0; point_id < all_point_knn_graph_.size(); point_id++) {
+    PointHeap& nearest_neighbor = all_point_knn_graph_[point_id];
     auto iter = nearest_neighbor.Begin();
     for (; iter != nearest_neighbor.End(); iter++) {
-      auto cur_count_iter = point_in_degree_count.find(iter->id);
-      if (cur_count_iter == point_in_degree_count.end()) {
-        point_in_degree_count[iter->id] = 1;
-      }
-      else {
-        cur_count_iter->second += 1;
-      }
+      #pragma omp atomic
+      point_in_degree_count[iter->id]++;
     }
   }
 
   // find key points
-  util::Heap<PointDistancePair<int, int> > key_heap(key_point_num);
-  auto bucket_point_iter = bucket2point.begin();
-  for (; bucket_point_iter != bucket2point.end(); bucket_point_iter++) {
-    IntCode cur_bucket = bucket_point_iter->first;
-    std::vector<IntIndex>& point_list = bucket_point_iter->second;
+  BucketList bucket_list;
+  GetBucketList(bucket2point, bucket_list);
 
-    key_heap.Clear();
+  typedef util::Heap<PointDistancePair<IntIndex, int> > InDegreeHeap;
+  std::vector<PointList> bucket_index2key_points(bucket_list.size());
+
+  #pragma omp parallel for schedule(static)
+  for (IntIndex bucket_index = 0; bucket_index < bucket_list.size(); bucket_index++) {
+    IntCode bucket_id = bucket_list[bucket_index];
+    Bucket2Point::const_iterator bucket_point_iter = bucket2point.find(bucket_id);
+    const PointList& point_list = bucket_point_iter->second;
+
+    InDegreeHeap min_in_degree_heap(0);
     for (auto point_id : point_list) {
-      key_heap.Insert(PointDistancePair<int, int>(point_id, point_in_degree_count[point_id]));
+      // won't repeat
+      min_in_degree_heap.Push(PointDistancePair<IntIndex, int>(point_id, point_in_degree_count[point_id]));
     }
-    
-    auto key_point_iter = key_heap.Begin();
-    for (; key_point_iter != key_heap.End(); key_point_iter++) {
-      bucket2key_point_[cur_bucket].push_back(key_point_iter->id); 
+    min_in_degree_heap.Sort();
+    PointSet pass_points;
+    PointList& bucket_key_points = bucket_index2key_points[bucket_index];
+    for (auto point_iter = min_in_degree_heap.Begin(); 
+              point_iter != min_in_degree_heap.End(); point_iter++) {
+      if (pass_points.find(point_iter->id) != pass_points.end()) {
+        continue;
+      }
+      bucket_key_points.push_back(point_iter->id);
+      // pass current key point's neighbor
+      PointHeap& nearest_neighbor = all_point_knn_graph_[point_iter->id];
+      for (auto neighbor_iter = nearest_neighbor.Begin();
+                neighbor_iter != nearest_neighbor.End(); neighbor_iter++) {
+        pass_points.insert(neighbor_iter->id);
+      }
     }
+    // max key_point_num key points
+    if (bucket_key_points.size() > key_point_num) {
+      bucket_key_points.erase(bucket_key_points.begin()+key_point_num, bucket_key_points.end());
+    }
+  }
+
+  // update
+  // TODO : parallel after making bucket id continuous
+  for (IntIndex bucket_index = 0; bucket_index < bucket_list.size(); bucket_index++) {
+    IntCode bucket_id = bucket_list[bucket_index];
+    bucket2key_point_[bucket_id].swap(bucket_index2key_points[bucket_index]); 
   }
 }
 
@@ -769,11 +806,12 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindKnnInGraph(
   PointHeap traverse_heap(1);
   traverse_heap.Insert(start_point);
   k_candidates_heap.Insert(start_point);
-  while (traverse_heap.Size() > 0) {
+  while (true) {
+    // start from current nearest point
     IntIndex cur_nearest_point = traverse_heap.Front().id;
-    traverse_heap.Pop();
-
+    int update_count = 0;
     PointHeap& point_neighbor = knn_graph[cur_nearest_point];
+    // explore current nearest point's neighbor
     auto neighbor_iter = point_neighbor.Begin();
     for (; neighbor_iter != point_neighbor.End(); neighbor_iter++) {
       if (visited_points.find(neighbor_iter->id) != visited_points.end() || 
@@ -784,11 +822,13 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindKnnInGraph(
       DistanceType dist = distance_func_(GetPoint(neighbor_iter->id), query);
       PointDistancePairItem point_dist(neighbor_iter->id, dist);
 
-      int update_count = k_candidates_heap.Insert(point_dist);
-      if (update_count > 0) {
-        traverse_heap.Insert(point_dist);
-      }
+      k_candidates_heap.Insert(point_dist);
+      update_count += traverse_heap.Insert(point_dist);
       visited_points.insert(neighbor_iter->id);
+    }
+    // if nearest point is not updated, stop search
+    if (update_count == 0) {
+      break;
     }
   }
 }

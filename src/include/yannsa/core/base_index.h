@@ -15,10 +15,9 @@ template <typename IndexType, typename DistanceType>
 struct PointDistancePair {
   IndexType id;
   DistanceType distance;
-  bool flag;
 
-  PointDistancePair(IndexType point_id, DistanceType dist, bool f=true) : 
-                    id(point_id), distance(dist), flag(f) {}
+  PointDistancePair(IndexType point_id, DistanceType dist) : 
+                    id(point_id), distance(dist) {}
 
   inline bool operator<(const PointDistancePair& point_distance_pair) const {
     return distance < point_distance_pair.distance;
