@@ -34,21 +34,19 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
   private:
     typedef std::vector<char> DynamicBitset;
+    typedef std::vector<IntIndex> IdList;
 
     // bucket
-    typedef std::vector<IntCode> BucketList;
     typedef std::unordered_set<IntCode> BucketSet;
-    typedef std::unordered_map<IntCode, IntCode> Bucket2Bucket; 
-    typedef std::unordered_map<IntCode, std::vector<IntIndex> > Bucket2Point; 
+    typedef std::vector<IdList> BucketId2PointList;
     // bucket knn graph : MAP --> discrete and not too many items
     typedef PointDistancePair<IntCode, IntCode> BucketDistancePairItem;
     typedef util::Heap<BucketDistancePairItem> BucketHeap;
-    typedef std::unordered_map<IntCode, BucketHeap> BucketKnnGraph;
+    typedef std::vector<BucketHeap> BucketKnnGraph;
     typedef std::unordered_map<IntCode, std::unordered_set<IntCode> > Bucket2ConnectedBuckets;
+    typedef std::unordered_map<IntIndex, IntIndex> BucketId2BucketId; 
 
     // point
-    typedef std::vector<IntIndex> PointList;
-    typedef std::vector<IntCode> PointCodeList;
     typedef std::unordered_set<IntIndex> PointSet;
     // point knn graph : VECTOR --> continues
     typedef PointDistancePair<IntIndex, DistanceType> PointDistancePairItem; 
@@ -68,14 +66,23 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
       return this->dataset_ptr_->Get(index2key_[point_id]);
     }
     
-    inline int PointSize() {
+    inline IntIndex PointSize() {
       return index2key_.size();
     }
 
+    inline IntIndex BucketSize() {
+      return bucket_id2code_.size();
+    }
+
     void Clear() {
+      // point
       index2key_.clear();
       all_point_knn_graph_.clear();
       key_point_knn_graph_.clear();
+
+      // bucket
+      bucket_code2id_.clear();
+      bucket_id2code_.clear();
       bucket2key_point_.clear();
       merged_bucket_map_.clear();
     }
@@ -107,7 +114,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     }
 
   private:
-    IntCode CalculateHammingDistance(IntCode x, IntCode y) {
+    IntCode HammingDistance(IntCode x, IntCode y) {
       IntCode hamming_dist = 0;
       IntCode xor_result = x ^ y;
       while (xor_result) {
@@ -122,47 +129,42 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
       return sizeof(IntCode) * CHAR_BIT / 2; 
     }
 
-    void Encode2Buckets(Bucket2Point& bucket2point); 
+    void Encode2Buckets(BucketId2PointList& bucket2point_list); 
 
-    void SplitMergeBuckets(Bucket2Point& bucket2point, 
+    void SplitMergeBuckets(BucketId2PointList& bucket2point_list, 
                            BucketKnnGraph& bucket_knn_graph,
                            int max_bucket_size, 
                            int min_bucket_size);
 
-    void SplitOneBucket(Bucket2Point& bucket2point, 
+    void SplitOneBucket(BucketId2PointList& bucket2point_list, 
                      IntCode cur_bucket, 
                      int max_bucket_size, 
                      int min_bucket_size);
 
-    void SplitBuckets(Bucket2Point& bucket2point, 
+    void SplitBuckets(BucketId2PointList& bucket2point_list, 
                       int max_bucket_size,
                       int min_bucket_size);
 
-    void MergeOneBucket(Bucket2Point& bucket2point,
-                        IntCode cur_bucket,
+    void MergeOneBucket(BucketId2PointList& bucket2point_list,
+                        IntCode bucket_id,
                         int max_bucket_size,
                         int min_bucket_size,
-                        BucketHeap& bucket_neighbor_dist);
+                        BucketHeap& bucket_neighbor_heap);
 
-    void MergeBuckets(Bucket2Point& bucket2point, 
+    void MergeBuckets(BucketId2PointList& bucket2point_list, 
                       int max_bucket_size,
                       int min_bucket_size,
                       BucketKnnGraph& bucket_knn_graph); 
 
-    void BuildBucketsKnnGraph(BucketList& bucket_list,
-                              int bucket_neighbor_num,
-                              BucketKnnGraph& bucket_knn_graph); 
+    void BuildBucketsKnnGraph(BucketKnnGraph& bucket_knn_graph); 
 
-    void BuildAllBucketsPointsKnnGraph(Bucket2Point& bucket2point);
+    void BuildAllBucketsPointsKnnGraph(BucketId2PointList& bucket2point_list);
 
     template<typename PointKnnGraphType>
-    void BuildPointsKnnGraph(const PointList& point_list, PointKnnGraphType& point_knn_graph); 
+    void BuildPointsKnnGraph(const IdList& point_list, PointKnnGraphType& point_knn_graph); 
 
-    void FindBucketKeyPoints(Bucket2Point& bucket2point,
+    void FindBucketKeyPoints(BucketId2PointList& bucket2point_list,
                              int key_point_num);
-
-    inline void GetBucketList(Bucket2Point& bucket2point, 
-                              BucketList& bucket_list); 
 
     template <typename PointKnnGraphType>
     void FindKnnInGraph(const PointType& query, PointKnnGraphType& knn_graph,
@@ -174,9 +176,10 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
                               IntIndex start_point_id, PointHeap& k_candidates_heap,
                               DynamicBitset& visited_point_flag);
 
-    void ConnectBucketPoints(Bucket2Point& bucket2point, BucketKnnGraph& bucket_knn_graph, int point_neighbor_num); 
+    void ConnectBucketPoints(BucketId2PointList& bucket2point_list, 
+                             BucketKnnGraph& bucket_knn_graph, int point_neighbor_num); 
 
-    void Sample(PointSet& point_set, PointList& sampled_point_list, int sample_num); 
+    void Sample(PointSet& point_set, IdList& sampled_point_list, int sample_num); 
 
     void RefineByExpansion(int iter_num/*, float precision*/) {
       IntIndex max_point_id = all_point_knn_graph_.size();
@@ -243,9 +246,16 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
   private:
     std::vector<std::string> index2key_;
     ContinuesPointKnnGraph all_point_knn_graph_;
+
+    BucketId2PointList bucket2key_point_;
     DiscretePointKnnGraph key_point_knn_graph_;
-    Bucket2Point bucket2key_point_;
-    Bucket2Bucket merged_bucket_map_; 
+
+    std::vector<IntCode> bucket_id2code_;
+    std::unordered_map<IntCode, int> bucket_code2id_;
+
+    BucketId2BucketId merged_bucket_map_; 
+    DynamicBitset merged_bucket_flag_;
+
     util::BaseEncoderPtr<PointType> encoder_ptr_;
     DistanceFuncType distance_func_;
 };
@@ -271,54 +281,35 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
     util::BaseEncoderPtr<PointType>& encoder_ptr) { 
   encoder_ptr_ = encoder_ptr;
 
-  Clear();
   Init(index_param.point_neighbor_num);
 
   // encode
   util::Log("before encode");
-  Bucket2Point bucket2point;
-  Encode2Buckets(bucket2point);
+  BucketId2PointList bucket2point_list;
+  Encode2Buckets(bucket2point_list);
   util::Log("encode done");
 
   // construct bucket knn graph
   util::Log("before bucket knn graph");
-  BucketList bucket_list;
-  GetBucketList(bucket2point, bucket_list);
-  BucketKnnGraph bucket_knn_graph;
-  BuildBucketsKnnGraph(bucket_list, index_param.bucket_neighbor_num, bucket_knn_graph);
+  BucketKnnGraph bucket_knn_graph(BucketSize(), BucketHeap(index_param.bucket_neighbor_num));
+  BuildBucketsKnnGraph(bucket_knn_graph);
   util::Log("end bucket knn graph");
 
   util::Log("before split merge bucket");
-  SplitMergeBuckets(bucket2point, bucket_knn_graph, 
+  SplitMergeBuckets(bucket2point_list, bucket_knn_graph, 
                     index_param.max_bucket_size, index_param.min_bucket_size); 
   util::Log("end split merge bucket");
 
   // build point knn graph
   util::Log("before all point knn graph");
-  BuildAllBucketsPointsKnnGraph(bucket2point);
+  BuildAllBucketsPointsKnnGraph(bucket2point_list);
   util::Log("end all point knn graph");
 
   // find key points in bucket
-  FindBucketKeyPoints(bucket2point, index_param.bucket_key_point_num);
-
-  BucketKnnGraph bucket_knn_graph1;
-  BucketList bucket_list1;
-  GetBucketList(bucket2point, bucket_list1);
-  BuildBucketsKnnGraph(bucket_list1, index_param.bucket_neighbor_num, bucket_knn_graph1);
-  // merge bucket knn graph and graph1
-  for (auto bucket_neighbor : bucket_knn_graph) {
-    IntCode cur_bucket = bucket_neighbor.first;
-    BucketHeap& neighbor_heap = bucket_neighbor.second;
-    for (auto iter = neighbor_heap.Begin(); iter != neighbor_heap.End(); iter++) {
-      if (iter->id == cur_bucket) {
-        continue;
-      }
-      bucket_knn_graph1[cur_bucket].Insert(*iter);
-    }
-  }
+  FindBucketKeyPoints(bucket2point_list, index_param.bucket_key_point_num);
 
   // join bucket knn graph1 and graph
-  ConnectBucketPoints(bucket2point, bucket_knn_graph1, index_param.point_neighbor_num); 
+  ConnectBucketPoints(bucket2point_list, bucket_knn_graph, index_param.point_neighbor_num); 
 
   util::Log("start refine ");
 
@@ -328,7 +319,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
 
   /*
   // build key point knn graph
-  PointList key_point_list;
+  IdList key_point_list;
   for (auto bucket_key_point : bucket2key_point_) {
     key_point_list.insert(key_point_list.end(),
                           bucket_key_point.second.begin(),
@@ -353,7 +344,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::Sample(
-    PointSet& point_set, PointList& sampled_point_list, int sample_num) {
+    PointSet& point_set, IdList& sampled_point_list, int sample_num) {
   util::IntRandomGenerator rg(0, sample_num-1);
   for (auto iter = point_set.begin(); iter != point_set.end(); iter++) {
     if (sampled_point_list.size() < sample_num) {
@@ -367,14 +358,12 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Sample(
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
-    Bucket2Point& bucket2point, BucketKnnGraph& bucket_knn_graph,
+    BucketId2PointList& bucket2point_list, BucketKnnGraph& bucket_knn_graph,
     int point_neighbor_num) {
-  BucketList bucket_list;
-  GetBucketList(bucket2point, bucket_list);
 
   // get each bucket connect bucket
   util::PointPairTable<IntCode> connect_pair_set;
-  for (auto& bucket_id : bucket_list) {
+  for (IntIndex bucket_id = 0; bucket_id < BucketSize(); bucket_id++) {
     auto& neighbor_buckets_heap = bucket_knn_graph[bucket_id];
     for (auto iter = neighbor_buckets_heap.Begin();
               iter != neighbor_buckets_heap.End(); iter++) {
@@ -419,11 +408,10 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
       IntCode bucket_id = one_batch_pair_list[pair_id].first;
       IntCode neighbor_bucket_id = one_batch_pair_list[pair_id].second;
 
-      // for thread safe
       Bucket2Point::const_iterator bucket_key_iter = bucket2key_point_.find(neighbor_bucket_id);
-      const PointList& start_point_list = bucket_key_iter->second;
-      Bucket2Point::const_iterator bucket_point_iter = bucket2point.find(bucket_id);
-      const PointList& bucket_point_list = bucket_point_iter->second;
+      const IdList& start_point_list = bucket_key_iter->second;
+      Bucket2Point::const_iterator bucket_point_iter = bucket2point_list.find(bucket_id);
+      const IdList& bucket_point_list = bucket_point_iter->second;
 
       DynamicBitset point_has_searched_flag(PointSize(), 0);
       DynamicBitset bucket_point_flag(PointSize(), 0);
@@ -493,10 +481,9 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::Encode2Buckets(
-    Bucket2Point& bucket2point) { 
-  bucket2point.clear();
+    BucketId2PointList& bucket2point_list) { 
   // encode
-  PointCodeList point_code_list(index2key_.size());
+  std::vector<IntCode> point_code_list(index2key_.size());
   #pragma omp parallel for schedule(static)
   for (IntIndex point_id = 0; point_id < index2key_.size(); point_id++) {
     IntCode point_code = encoder_ptr_->Encode(GetPoint(point_id));
@@ -505,87 +492,69 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Encode2Buckets(
 
   for (IntIndex point_id = 0; point_id < point_code_list.size(); point_id++) {
     IntCode point_code = point_code_list[point_id];
-    bucket2point[point_code].push_back(point_id);
+    // create new bucket if not exist
+    if (bucket_code2id_.find(point_code) == bucket_code2id_.end()) {
+      IntIndex new_bucket_id = bucket_id2code_.size();
+      bucket_id2code_.push_back(point_code);
+      bucket_code2id_[point_code] = new_bucket_id; 
+      bucket2point_list.push_back(IdList());
+    }
+
+    IntIndex bucket_id = bucket_code2id_[point_code];
+    bucket2point_list[bucket_id].push_back(point_id);
   }
+
+  // set all bucket flag be not merged
+  merged_bucket_flag_ = DynamicBitset(BucketSize(), 0);
 }
 
-template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::GetBucketList(
-    Bucket2Point& bucket2point, BucketList& bucket_list) { 
-  for (auto& item : bucket2point) {
-    bucket_list.push_back(item.first);
-  }
-}
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::SplitMergeBuckets(
-    Bucket2Point& bucket2point, 
-    BucketKnnGraph& bucket_knn_graph,
-    int max_bucket_size,
-    int min_bucket_size) {
+    BucketId2PointList& bucket2point_list, BucketKnnGraph& bucket_knn_graph,
+    int max_bucket_size, int min_bucket_size) {
 
   // split firstly for that too small bucketscan be merged
-  //SplitBuckets(bucket2point, max_bucket_size, min_bucket_size, to_split_bucket_list); 
+  //SplitBuckets(bucket2point_list, max_bucket_size, min_bucket_size, to_split_bucket_list); 
 
-  std::cout << "before merge size " << bucket2point.size() << std::endl;
+  std::cout << "before merge size " << bucket2point_list.size() << std::endl;
   // merge buckets
-  MergeBuckets(bucket2point, max_bucket_size, min_bucket_size, bucket_knn_graph);
+  MergeBuckets(bucket2point_list, max_bucket_size, min_bucket_size, bucket_knn_graph);
 
-  std::cout << "after merge size " << bucket2point.size() << std::endl;
+  std::cout << "be merged size " << merged_bucket_map_.size() << std::endl;
    
-  // refine merged bucket map and bucket knn graph
-  Bucket2Bucket final_merged_bucket_map; 
-  for (auto bucket_pair : merged_bucket_map_) {
-    IntCode merged_bucket = bucket_pair.first;
-    IntCode target_bucket = bucket_pair.second;
-    Bucket2Bucket::const_iterator merged_iter;
-    while ((merged_iter = merged_bucket_map_.find(target_bucket)) != merged_bucket_map_.end()) {
-      target_bucket = merged_iter->second;
-    }
-    final_merged_bucket_map[merged_bucket] = target_bucket;
-    // remove merged_bucket knn graph
-    bucket_knn_graph.erase(merged_bucket);
-  }
-  merged_bucket_map_.swap(final_merged_bucket_map);
-
-  for (auto& bucket_neighbor_pair : bucket_knn_graph) {
-    auto& neighbor_buckets_heap = bucket_neighbor_pair.second;
-    for (auto iter = neighbor_buckets_heap.Begin();
-              iter != neighbor_buckets_heap.End(); iter++) {
-      if (merged_bucket_map_.find(iter->id) != merged_bucket_map_.end()) {
-        iter->id = merged_bucket_map_[iter->id];
-      }
-    }
-  }
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::SplitBuckets(
-    Bucket2Point& bucket2point, 
+    BucketId2PointList& bucket2point_list, 
     int max_bucket_size,
     int min_bucket_size) {
 
-  BucketList& to_split_bucket_list;
-  for (auto& item : bucket2point) {
+  /*
+  IdList& to_split_bucket_list;
+  for (auto& item : bucket2point_list) {
     if (item.second.size() > max_bucket_size + min_bucket_size) {
       to_split_bucket_list.push_back(item.first);
     }
   }
 
   for (IntCode big_bucket : to_split_bucket_list) {
-    SplitOneBucket(bucket2point, big_bucket, max_bucket_size, min_bucket_size);
+    SplitOneBucket(bucket2point_list, big_bucket, max_bucket_size, min_bucket_size);
   }
+  */
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::SplitOneBucket(
-    Bucket2Point& bucket2point, 
+    BucketId2PointList& bucket2point_list, 
     IntCode cur_bucket, 
     int max_bucket_size, 
     int min_bucket_size) {
+  /*
   int high_bits_num = GetHalfBucketCodeLength();
   int new_bucket_count = 0;
-  while (bucket2point[cur_bucket].size() > max_bucket_size + min_bucket_size) {
+  while (bucket2point_list[cur_bucket].size() > max_bucket_size + min_bucket_size) {
     new_bucket_count++;
     // avoid overflow
     if (new_bucket_count > (1 << (high_bits_num - 1)) - 1) {
@@ -593,31 +562,32 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SplitOneBucket(
     }
 
     IntCode new_bucket = cur_bucket + (new_bucket_count << high_bits_num);
-    auto bucket_begin_iter = bucket2point[cur_bucket].end() - max_bucket_size;
-    auto bucket_end_iter = bucket2point[cur_bucket].end();
-    bucket2point[new_bucket] = std::vector<IntIndex>(bucket_begin_iter, bucket_end_iter);
-    bucket2point[cur_bucket].erase(bucket_begin_iter, bucket_end_iter); 
+    auto bucket_begin_iter = bucket2point_list[cur_bucket].end() - max_bucket_size;
+    auto bucket_end_iter = bucket2point_list[cur_bucket].end();
+    bucket2point_list[new_bucket] = std::vector<IntIndex>(bucket_begin_iter, bucket_end_iter);
+    bucket2point_list[cur_bucket].erase(bucket_begin_iter, bucket_end_iter); 
   }
+  */
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::MergeOneBucket(
-    Bucket2Point& bucket2point, IntCode cur_bucket,
+    BucketId2PointList& bucket2point_list, IntCode cur_bucket,
     int max_bucket_size, int min_bucket_size,
-    BucketHeap& bucket_neighbor_dist) {
+    BucketHeap& bucket_neighbor_heap) {
 
   if (merged_bucket_map_.find(cur_bucket) != merged_bucket_map_.end() || 
-      bucket2point[cur_bucket].size() >= min_bucket_size) {
+      bucket2point_list[cur_bucket].size() >= min_bucket_size) {
     return;
   }
 
-  bucket_neighbor_dist.Sort();
-  auto bucket_neighbor_iter = bucket_neighbor_dist.Begin();
-  for (; bucket_neighbor_iter != bucket_neighbor_dist.End(); bucket_neighbor_iter++) {
+  bucket_neighbor_heap.Sort();
+  auto bucket_neighbor_iter = bucket_neighbor_heap.Begin();
+  for (; bucket_neighbor_iter != bucket_neighbor_heap.End(); bucket_neighbor_iter++) {
     // merge cur_bucket into neighbor_buckt
     IntCode neighbor_bucket = bucket_neighbor_iter->id;
     // neighbor bucket may be merged and merged bucket may also be merged
-    Bucket2Bucket::iterator merged_iter;
+    BucketId2BucketId::iterator merged_iter;
     while ((merged_iter = merged_bucket_map_.find(neighbor_bucket)) != merged_bucket_map_.end()) {
       neighbor_bucket = merged_iter->second;
     }
@@ -627,12 +597,14 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::MergeOneBucket(
     }
     
     // if not exceed split threshold
-    if (bucket2point[neighbor_bucket].size() + bucket2point[cur_bucket].size() 
+    if (bucket2point_list[neighbor_bucket].size() + bucket2point_list[cur_bucket].size() 
         <= max_bucket_size + min_bucket_size) {
-      bucket2point[neighbor_bucket].insert(bucket2point[neighbor_bucket].end(),
-                                           bucket2point[cur_bucket].begin(),
-                                           bucket2point[cur_bucket].end());
+      bucket2point_list[neighbor_bucket].insert(bucket2point_list[neighbor_bucket].end(),
+                                                bucket2point_list[cur_bucket].begin(),
+                                                bucket2point_list[cur_bucket].end());
+      bucket2point_list[cur_bucket].clear();
       merged_bucket_map_[cur_bucket] = neighbor_bucket;
+      merged_bucket_flag_[cur_bucket] = 1;
       break;
     }
   }
@@ -640,50 +612,52 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::MergeOneBucket(
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::MergeBuckets(
-    Bucket2Point& bucket2point, 
+    BucketId2PointList& bucket2point_list, 
     int max_bucket_size,
     int min_bucket_size,
     BucketKnnGraph& bucket_knn_graph) {
 
-  BucketList to_merge_bucket_list;
-  for (auto& item : bucket2point) {
-    if (item.second.size() < min_bucket_size) {
-      to_merge_bucket_list.push_back(item.first);
+  // merge
+  for (IntIndex bucket_id = 0; bucket_id < bucket2point_list.size(); bucket_id++) {
+    if (bucket2point_list[bucket_id].size() >= min_bucket_size) {
+      continue;
     }
+    BucketHeap& bucket_neighbor_heap = bucket_knn_graph[bucket_id];
+    MergeOneBucket(bucket2point_list, bucket_id, max_bucket_size, min_bucket_size, 
+                   bucket_neighbor_heap); 
   }
 
-  for (auto bucket_id : to_merge_bucket_list) {
-    BucketHeap& bucket_neighbor_dist = bucket_knn_graph[bucket_id];
-    MergeOneBucket(bucket2point, bucket_id, max_bucket_size, min_bucket_size, 
-                   bucket_neighbor_dist); 
-  }
-
-  // remove merged buckets
+  // refine merged bucket map and bucket knn graph
+  BucketId2BucketId final_merged_bucket_map; 
   for (auto bucket_pair : merged_bucket_map_) {
-    bucket2point.erase(bucket_pair.first);
+    IntCode merged_bucket = bucket_pair.first;
+    IntCode target_bucket = bucket_pair.second;
+    BucketId2BucketId::const_iterator merged_iter;
+    while ((merged_iter = merged_bucket_map_.find(target_bucket)) != merged_bucket_map_.end()) {
+      target_bucket = merged_iter->second;
+    }
+    final_merged_bucket_map[merged_bucket] = target_bucket;
+    // remove merged_bucket knn graph
   }
+  merged_bucket_map_.swap(final_merged_bucket_map);
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildBucketsKnnGraph(
-    BucketList& bucket_list, int bucket_neighbor_num,
-    BucketKnnGraph& bucket_knn_graph) {
+    int bucket_neighbor_num, BucketKnnGraph& bucket_knn_graph) {
 
-  // avoid tmp heap obj
-  for (auto cur_bucket : bucket_list) {
-    bucket_knn_graph.insert(BucketKnnGraph::value_type(cur_bucket, BucketHeap(bucket_neighbor_num)));
-  }
+  // repeat calculate bucket pair distance for parallel 
+  #pragma omp parallel for schedule(static)
+  for (IntIndex bucket_id_i = 0; bucket_id_i < BucketSize(); bucket_id_i++) {
+    for (IntIndex bucket_id_j = 0; bucket_id_j < BucketSize(); bucket_id_j++) {
+      if (bucket_id_i == bucket_id_j) {
+        continue;
+      }
 
-  for (IntIndex i = 0; i < bucket_list.size(); i++) {
-    IntCode cur_bucket = bucket_list[i];
-    for (IntIndex j = i+1; j < bucket_list.size(); j++) {
-      IntCode neighbor_bucket = bucket_list[j];
-      // calculate hamming distance
       int half_bucket_code_length = GetHalfBucketCodeLength(); 
-      IntCode hamming_dist = CalculateHammingDistance(cur_bucket << half_bucket_code_length, 
-                                                      neighbor_bucket << half_bucket_code_length);
-      bucket_knn_graph[cur_bucket].Insert(BucketDistancePairItem(neighbor_bucket, hamming_dist)); 
-      bucket_knn_graph[neighbor_bucket].Insert(BucketDistancePairItem(cur_bucket, hamming_dist)); 
+      IntCode hamming_dist = HammingDistance(bucket_id_i << half_bucket_code_length, 
+                                             bucket_id_j << half_bucket_code_length);
+      bucket_knn_graph[bucket_id_i].Insert(BucketDistancePairItem(bucket_id_j, hamming_dist)); 
     }
   }
 }
@@ -691,7 +665,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildBucketsKnnGraph
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 template <typename PointKnnGraphType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildPointsKnnGraph(
-    const PointList& point_list,
+    const IdList& point_list,
     PointKnnGraphType& point_knn_graph) {
   for (int i = 0; i < point_list.size(); i++) {
     IntIndex cur_point = point_list[i];
@@ -707,19 +681,16 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildPointsKnnGraph(
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildAllBucketsPointsKnnGraph(
-    Bucket2Point& bucket2point) {
-  BucketList bucket_list;
-  GetBucketList(bucket2point, bucket_list);
-  #pragma omp parallel for schedule(dynamic, 20)
-  for (int i = 0; i < bucket_list.size(); i++) {
-    Bucket2Point::const_iterator bucket_iter = bucket2point.find(bucket_list[i]);
-    BuildPointsKnnGraph(bucket_iter->second, all_point_knn_graph_);
+    BucketId2PointList& bucket2point_list) {
+  #pragma omp parallel for schedule(dynamic, 5)
+  for (IntIndex bucket_id = 0; bucket_id < bucket2point_list.size(); bucket_id++) {
+    BuildPointsKnnGraph(bucket2point_list[bucket_id], all_point_knn_graph_);
   }
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindBucketKeyPoints(
-    Bucket2Point& bucket2point,
+    BucketId2PointList& bucket2point_list,
     int key_point_num) {
   // count points in degree
   std::vector<int> point_in_degree_count(all_point_knn_graph_.size(), 0);
@@ -734,17 +705,13 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindBucketKeyPoints(
   }
 
   // find key points
-  BucketList bucket_list;
-  GetBucketList(bucket2point, bucket_list);
-
   typedef util::Heap<PointDistancePair<IntIndex, int> > InDegreeHeap;
-  std::vector<PointList> bucket_index2key_points(bucket_list.size());
-
   #pragma omp parallel for schedule(static)
-  for (IntIndex bucket_index = 0; bucket_index < bucket_list.size(); bucket_index++) {
-    IntCode bucket_id = bucket_list[bucket_index];
-    Bucket2Point::const_iterator bucket_point_iter = bucket2point.find(bucket_id);
-    const PointList& point_list = bucket_point_iter->second;
+  for (IntIndex bucket_id = 0; bucket_id < bucket2point_list.size(); bucket_id++) {
+    const IdList& point_list = bucket2point_list[bucket_id];
+    if (point_list.empty()) {
+      continue;
+    }
 
     InDegreeHeap min_in_degree_heap(0);
     for (auto point_id : point_list) {
@@ -752,33 +719,28 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindBucketKeyPoints(
       min_in_degree_heap.Push(PointDistancePair<IntIndex, int>(point_id, point_in_degree_count[point_id]));
     }
     min_in_degree_heap.Sort();
-    PointSet pass_points;
-    PointList& bucket_key_points = bucket_index2key_points[bucket_index];
+
+    DynamicBitset point_pass_flag(PointSize(), 0);
     for (auto point_iter = min_in_degree_heap.Begin(); 
               point_iter != min_in_degree_heap.End(); point_iter++) {
-      if (pass_points.find(point_iter->id) != pass_points.end()) {
+      if (point_pass_flag[point_iter->id]) {
         continue;
       }
-      pass_points.insert(point_iter->id);
-      bucket_key_points.push_back(point_iter->id);
+      point_pass_flag[point_iter->id] = 1;
+
+      bucket2key_point_[point_id].push_back(point_iter->id);
+      // find enough num key points
+      if (bucket2key_point_[point_id].size() > key_point_num) {
+        break;
+      }
+
       // pass current key point's neighbor
       PointHeap& nearest_neighbor = all_point_knn_graph_[point_iter->id];
       for (auto neighbor_iter = nearest_neighbor.Begin();
                 neighbor_iter != nearest_neighbor.End(); neighbor_iter++) {
-        pass_points.insert(neighbor_iter->id);
+        point_pass_flag[neighbor_iter->id] = 1;
       }
     }
-    // max key_point_num key points
-    if (bucket_key_points.size() > key_point_num) {
-      bucket_key_points.erase(bucket_key_points.begin()+key_point_num, bucket_key_points.end());
-    }
-  }
-
-  // update
-  // TODO : parallel after making bucket id continuous
-  for (IntIndex bucket_index = 0; bucket_index < bucket_list.size(); bucket_index++) {
-    IntCode bucket_id = bucket_list[bucket_index];
-    bucket2key_point_[bucket_id].swap(bucket_index2key_points[bucket_index]); 
   }
 }
 
@@ -791,7 +753,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
     throw IndexNotBuildError("Graph index hasn't been built!");
   }
 
-  PointList start_points;
+  IdList start_points;
   IntCode bucket_code = encoder_ptr_->Encode(query);
 
   // bucket may be merged and merged bucket may also be merged
