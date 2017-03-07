@@ -12,7 +12,6 @@
 #include "yannsa/util/random_generator.h"
 #include <omp.h>
 #include <vector>
-#include <bitset>
 #include <unordered_map>
 #include <unordered_set>
 #include <string>
@@ -393,7 +392,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
   for (util::PointPairList<IntCode>& one_batch_pair_list : batch_connect_pairs) {
     ContinuesPointKnnGraph to_update_candidates(all_point_knn_graph_.size(), PointHeap(point_neighbor_num));
 
-    //#pragma omp parallel for schedule(dynamic, 5)
+    #pragma omp parallel for schedule(dynamic, 5)
     for (int pair_id = 0; pair_id < one_batch_pair_list.size(); pair_id++) {
       IntCode bucket_id = one_batch_pair_list[pair_id].first;
       IntCode neighbor_bucket_id = one_batch_pair_list[pair_id].second;
@@ -430,7 +429,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
         {
           DynamicBitset visited_point_flag(bucket_point_flag);
           IntIndex start_point_id = start_point_list[0];
-          FindKnnInGraph(GetPoint(point_id), all_point_knn_graph_,
+          GreedyFindKnnInGraph(GetPoint(point_id), all_point_knn_graph_,
                                start_point_id, to_update_candidates[point_id],
                                visited_point_flag); 
         }
