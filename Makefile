@@ -1,5 +1,5 @@
 CXX=g++-6 
-CXX_FLAGS=-std=c++11 -O3 -march=native -pthread -fopenmp
+CXX_FLAGS=-std=c++11 -O3 -march=native -fopenmp
 
 YANNSA_INC=src/include/
 THIRD_PARTY_INC=third_party/

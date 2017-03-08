@@ -38,6 +38,7 @@ class PointPairDistanceTable {
   private:
     TableKey ConstructKey(IndexType point_a, IndexType point_b) {
       return (point_a < point_b ? std::make_pair(point_a, point_b) : std::make_pair(point_b, point_a));
+      return std::make_pair(point_a, point_b); 
     }
 
   private:

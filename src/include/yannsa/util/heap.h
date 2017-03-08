@@ -43,11 +43,14 @@ class Heap {
       std::make_heap(heap_.begin(), heap_.end());
     }
 
-    int Insert(const PointType& new_point) {
+    int UniqInsert(const PointType& new_point) {
       if (find(heap_.begin(), heap_.end(), new_point) != heap_.end()) {
         return 0;
       }
+      return Insert(new_point);
+    }
 
+    int Insert(const PointType& new_point) {
       size_t cur_size = Size();
       if (max_size_ == 0 || cur_size < max_size_) {
         Push(new_point);

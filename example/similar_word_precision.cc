@@ -118,8 +118,8 @@ int main() {
   param.bucket_key_point_num = 10;
   param.bucket_neighbor_num = 10;
 #if defined(LITTLE_DATA_TEST)
-  param.min_bucket_size = 50;
-  param.max_bucket_size = 200;
+  param.min_bucket_size = 200;
+  param.max_bucket_size = 500;
 #elif defined(LARGE_DATA_TEST)
   param.min_bucket_size = 500;
   param.max_bucket_size = 2000;
