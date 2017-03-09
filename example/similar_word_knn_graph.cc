@@ -116,17 +116,17 @@ int main() {
   CosineGraphIndexPtr<float> graph_index_ptr(new CosineGraphIndex<float>(dataset_ptr));
   util::GraphIndexParameter param;
   param.point_neighbor_num = 10;
-  param.bucket_key_point_num = 10;
+  param.bucket_key_point_num = 50;
   param.bucket_neighbor_num = 12;
 #if defined(LITTLE_DATA_TEST)
-  param.min_bucket_size = 200;
+  param.min_bucket_size = 50;
   param.max_bucket_size = 500;
 #elif defined(LARGE_DATA_TEST)
   param.min_bucket_size = 500;
   param.max_bucket_size = 2000;
 #endif
   BaseEncoderPtr<PointVector<float> > 
-      binary_encoder_ptr(new BinaryEncoder<PointVector<float>, float>(point_dim, 9));
+      binary_encoder_ptr(new BinaryEncoder<PointVector<float>, float>(point_dim, 10));
 
   LogTime("start build index");
   graph_index_ptr->Build(param, binary_encoder_ptr);
