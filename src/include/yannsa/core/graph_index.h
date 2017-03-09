@@ -114,16 +114,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     }
 
   private:
-    IntCode HammingDistance(IntCode x, IntCode y) {
-      IntCode hamming_dist = 0;
-      IntCode xor_result = x ^ y;
-      while (xor_result) {
-        xor_result &= xor_result-1;
-        hamming_dist++;
-      }
-      return hamming_dist;
-    }
-
     void Encode2Buckets(BucketId2PointList& bucket2point_list); 
 
     void SplitMergeBuckets(BucketId2PointList& bucket2point_list, 
@@ -254,11 +244,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
 
   InitBucketIndex();
 
-  for (auto x : bucket2point_list) {
-    std::cout << x.size() << " ";
-  }
-  std::cout << std::endl;
-
   // construct bucket knn graph
   util::Log("before bucket knn graph");
   BucketKnnGraph bucket_knn_graph(OriginBucketSize(), BucketHeap(index_param.bucket_neighbor_num));
@@ -269,11 +254,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   SplitMergeBuckets(bucket2point_list, bucket_knn_graph, 
                     index_param.max_bucket_size, index_param.min_bucket_size); 
   util::Log("end split merge bucket");
-
-  for (auto x : bucket2point_list) {
-    std::cout << x.size() << " ";
-  }
-  std::cout << std::endl;
 
   // build point knn graph
   util::Log("before all point knn graph");
@@ -291,29 +271,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   util::Log("end connect buckets");
 
   util::Log("start refine ");
-  //RefineByExpansion(50);
+  RefineByExpansion(10);
   util::Log("end refine");
-
-  /*
-  // build key point knn graph
-  IdList key_point_list;
-  for (auto bucket_key_point : bucket2key_point_) {
-    key_point_list.insert(key_point_list.end(),
-                          bucket_key_point.second.begin(),
-                          bucket_key_point.second.end());
-  }
-  for (auto key_point : key_point_list) {
-    key_point_knn_graph_.insert(typename DiscretePointKnnGraph::value_type(
-          key_point, 
-          PointHeap(index_param.point_neighbor_num)));
-  }
-
-  std::cout << "get key points list done, size: " << key_point_list.size() << std::endl;
-
-  BuildPointsKnnGraph(key_point_list, key_point_knn_graph_); 
-
-  std::cout << "build key points knn graph done" << std::endl;
-  */
 
   // build
   this->have_built_ = true;
@@ -391,10 +350,10 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
       PointHeap& neighbor_heap = all_point_knn_graph_[cur_point_id];
       for (auto iter = neighbor_heap.Begin(); iter != neighbor_heap.End(); iter++) {
         if (iter->flag) {
-          if (point2new[cur_point_id].size() <= sample_num) {
+          //if (point2new[cur_point_id].size() <= sample_num) {
             point2new[cur_point_id].push_back(iter->id);
             iter->flag = false;
-          }
+          //}
         }
         else {
           point2old[cur_point_id].push_back(iter->id);
@@ -411,12 +370,14 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
     //#pragma omp parallel for schedule(dynamic, 20)
     for (IntIndex cur_point_id = 0; cur_point_id < max_point_id; cur_point_id++) {
       // sample reverse  
+      /*
       IdList old_reverse_sampled_list, new_reverse_sampled_list;
       Sample(point2old_reverse[cur_point_id], old_reverse_sampled_list, sample_num);
       Sample(point2new_reverse[cur_point_id], new_reverse_sampled_list, sample_num);
+      */
 
-      //IdList old_reverse_sampled_list = point2old_reverse[cur_point_id];
-      //IdList new_reverse_sampled_list = point2new_reverse[cur_point_id];
+      IdList old_reverse_sampled_list = point2old_reverse[cur_point_id];
+      IdList new_reverse_sampled_list = point2new_reverse[cur_point_id];
 
       // merge
       IdList& old_list = point2old[cur_point_id];
@@ -797,8 +758,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildBucketsKnnGraph
         continue;
       }
 
-      IntCode hamming_dist = HammingDistance(bucket_id2code_[bucket_id_i], bucket_id2code_[bucket_id_j]);
-      bucket_knn_graph[bucket_id_i].Insert(BucketDistancePairItem(bucket_id_j, hamming_dist)); 
+      IntCode bucket_dist = encoder_ptr_->Distance(bucket_id2code_[bucket_id_i], bucket_id2code_[bucket_id_j]);
+      bucket_knn_graph[bucket_id_i].Insert(BucketDistancePairItem(bucket_id_j, bucket_dist)); 
     }
   }
 }
@@ -910,33 +871,17 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
   IntCode bucket_code = encoder_ptr_->Encode(query);
 
   // bucket may be merged and merged bucket may also be merged
-  Bucket2Bucket::iterator merged_iter;
-  while ((merged_iter = merged_bucket_map_.find(bucket_code)) != merged_bucket_map_.end()) {
-    bucket_code = merged_iter->second;
+  if (merged_bucket_map_.find(bucket_code) != merged_bucket_map_.end()) {
+    bucket_code = merged_bucket_map_[bucket_code];
   }
 
-  // if bucket not exist, use near bucket (now bucket must exist)
-  for (int step = 0; ; step++) {
-    IntCode left_bucket = bucket_code - step;
-    IntCode right_bucket = bucket_code + step;
-    if (left_bucket >= 0) {
-      auto find_iter = bucket2key_point_.find(left_bucket);
-      if (find_iter != bucket2key_point_.end()){
-        start_points = find_iter->second;
-        break;
-      }
-      else {
-        std::cout << "bucket not exist" << std::endl;
-      }
-    }
-
-    // won't overflow
-    if (right_bucket != bucket_code) {
-      auto find_iter = bucket2key_point_.find(right_bucket);
-      if (find_iter != bucket2key_point_.end()){
-        start_points = find_iter->second;
-        break;
-      }
+  // if bucket not exist, use near bucket 
+  IntIndex bucket_id = -1;
+  if (bucket_code2id_.find(bucket_code) != bucket_code2id_.end()) {
+    bucket_id = bucket_code2id_[bucket_code];
+  }
+  else {
+    for (bucket_id2code_) {
     }
   }
 

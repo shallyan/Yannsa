@@ -14,6 +14,8 @@ class BaseEncoder {
 
     virtual IntCode Encode(const PointType& point) = 0; 
 
+    virtual IntCode Distance(const IntCode& a, const IntCode& b) = 0;
+
   protected:
     int code_length_;
 };

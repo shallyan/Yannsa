@@ -54,6 +54,16 @@ class BinaryEncoder : public util::BaseEncoder<PointType> {
       return code_result;
     }
 
+    IntCode Distance(const IntCode& a, const IntCode& b) {
+      IntCode hamming_dist = 0;
+      IntCode xor_result = a ^ b;
+      while (xor_result) {
+        xor_result &= xor_result-1;
+        hamming_dist++;
+      }
+      return hamming_dist;
+    }
+
   private:
     Hyperplane<CoordinateType> hash_func_set_;
 };
