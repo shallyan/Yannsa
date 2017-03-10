@@ -87,9 +87,18 @@ class Heap {
       heap_.pop_back();
     }
 
+    PointType GetMinValue() {
+      return *std::min_element(heap_.begin(), heap_.end());
+    }
+
+    PointType GetMaxValue() {
+      return heap_.front(); 
+    }
+
     PointType& front() {
       return heap_.front(); 
     }
+
   private:
     std::vector<PointType> heap_;
     int max_size_;
