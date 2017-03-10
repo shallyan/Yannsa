@@ -344,7 +344,6 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
     int iteration_num) {
 
-  float ratio = 0.5;
   int sample_num = 10;
 
   int max_point_id = PointSize();
@@ -356,10 +355,10 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
       PointHeap& neighbor_heap = all_point_knn_graph_[cur_point_id];
       for (auto iter = neighbor_heap.begin(); iter != neighbor_heap.end(); iter++) {
         if (iter->flag) {
-          //if (point2new[cur_point_id].size() <= sample_num) {
+          if (point2new[cur_point_id].size() <= sample_num) {
             point2new[cur_point_id].push_back(iter->id);
             iter->flag = false;
-          //}
+          }
         }
         else {
           point2old[cur_point_id].push_back(iter->id);
@@ -376,12 +375,9 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
     #pragma omp parallel for schedule(dynamic, 20) default(shared) reduction(+:update_count)
     for (IntIndex cur_point_id = 0; cur_point_id < max_point_id; cur_point_id++) {
       // sample reverse  
-      //IdList old_reverse_sampled_list, new_reverse_sampled_list;
-      //Sample(point2old_reverse[cur_point_id], old_reverse_sampled_list, sample_num);
-      //Sample(point2new_reverse[cur_point_id], new_reverse_sampled_list, sample_num);
-
-      IdList old_reverse_sampled_list = point2old_reverse[cur_point_id];
-      IdList new_reverse_sampled_list = point2new_reverse[cur_point_id];
+      IdList old_reverse_sampled_list, new_reverse_sampled_list;
+      Sample(point2old_reverse[cur_point_id], old_reverse_sampled_list, sample_num);
+      Sample(point2new_reverse[cur_point_id], new_reverse_sampled_list, sample_num);
 
       // merge
       IdList& old_list = point2old[cur_point_id];
