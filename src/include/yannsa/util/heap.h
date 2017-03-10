@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <algorithm>
+#include "yannsa/util/lock.h" 
 
 namespace yannsa {
 namespace util {
@@ -41,6 +42,11 @@ class Heap {
 
     inline void Reset() {
       std::make_heap(heap_.begin(), heap_.end());
+    }
+
+    int SafeUniqInsert(const PointType& new_point) {
+      ScopedLock lock = ScopedLock(lock_);
+      UniqInsert(new_point);
     }
 
     int UniqInsert(const PointType& new_point) {
@@ -87,6 +93,7 @@ class Heap {
   private:
     std::vector<PointType> heap_;
     int max_size_;
+    Mutex lock_;
 };
 
 } // namespace util

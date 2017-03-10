@@ -9,41 +9,6 @@
 namespace yannsa {
 namespace util {
 
-template <typename IndexType, typename DistanceType>
-class PointPairDistanceTable {
-  public:
-    typedef std::pair<IndexType, IndexType> TableKey;
-
-  public:
-    bool Exist(IndexType point_a, IndexType point_b) {
-      TableKey key = ConstructKey(point_a, point_b);
-      return table.find(key) != table.end();
-    }
-
-    void Insert(IndexType point_a, IndexType point_b, DistanceType dist) {
-      TableKey key = ConstructKey(point_a, point_b);
-      table[key] = dist;
-    }
-
-    bool Get(IndexType point_a, IndexType point_b, DistanceType& dist) {
-      TableKey key = ConstructKey(point_a, point_b);
-      auto iter = table.find(key);
-      if (iter == table.end()) {
-        return false;
-      }
-      dist = iter->second;
-      return true;
-    }
-
-  private:
-    TableKey ConstructKey(IndexType point_a, IndexType point_b) {
-      return (point_a < point_b ? std::make_pair(point_a, point_b) : std::make_pair(point_b, point_a));
-    }
-
-  private:
-    std::map<TableKey, DistanceType> table;
-};
-
 template <typename IndexType>
 class PointPairTable {
   public:
@@ -87,10 +52,10 @@ class PointPairTable {
 };
 
 template <typename IndexType>
-using PointPairQueue = std::queue<std::pair<IndexType, IndexType> >;
+using PointPair = std::pair<IndexType, IndexType>; 
 
 template <typename IndexType>
-using PointPairList = std::vector<std::pair<IndexType, IndexType> >;
+using PointPairList = std::vector<PointPair<IndexType> >;
 
 } // namespace util
 } // namespace yannsa
