@@ -98,6 +98,10 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
       return bucket_id2code_.size();
     }
 
+    inline IntIndex AllBucketSize() {
+      return bucket2key_point_.size();
+    }
+
     void Clear() {
       // point
       index2key_.clear();
@@ -279,7 +283,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   util::Log("end connect buckets");
 
   util::Log("start refine ");
-  //RefineByExpansion(30);
+  RefineByExpansion(30);
   util::Log("end refine");
 
   // build
@@ -375,7 +379,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
     GetPointReverseNeighbors(point2new, point2new_reverse);
 
     int update_count = 0;
-    //#pragma omp parallel for schedule(dynamic, 20) default(shared) reduction(+:update_count)
+    #pragma omp parallel for schedule(dynamic, 20) default(shared) reduction(+:update_count)
     for (IntIndex cur_point_id = 0; cur_point_id < max_point_id; cur_point_id++) {
       // sample reverse  
       IdList old_reverse_sampled_list, new_reverse_sampled_list;
@@ -403,14 +407,12 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
         for (IntIndex u2 : new_list) {
           if (u1 < u2) {
             DistanceType dist = distance_func_(point_vec, GetPoint(u2));
-            update_count += all_point_knn_graph_[u1].SafeUniqInsert(PointDistancePairItem(u2, dist, true));
-            update_count += all_point_knn_graph_[u2].SafeUniqInsert(PointDistancePairItem(u1, dist, true));
+            update_count += UpdatePointKnn(u1, u2, dist);
           }
         }
         for (IntIndex u2 : old_list) {
           DistanceType dist = distance_func_(point_vec, GetPoint(u2));
-          update_count += all_point_knn_graph_[u1].SafeUniqInsert(PointDistancePairItem(u2, dist, true));
-          update_count += all_point_knn_graph_[u2].SafeUniqInsert(PointDistancePairItem(u1, dist, true));
+          update_count += UpdatePointKnn(u1, u2, dist);
         }
       }
     }
@@ -477,7 +479,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::DivideConnectPairLis
   DynamicBitset selected_connect_pair_flag(connect_pair_list.size(), 0);
   while (true) {
     util::PointPairList<IntCode> one_batch_pair_list;
-    DynamicBitset selected_bucket_flag(OriginBucketSize(), 0); 
+    DynamicBitset selected_bucket_flag(AllBucketSize(), 0); 
     for (int con_pair_id = 0; con_pair_id < connect_pair_list.size(); con_pair_id++) {
       if (selected_connect_pair_flag[con_pair_id]) {
         continue;
@@ -603,8 +605,9 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
     for (int pair_id = 0; pair_id < one_batch_pair_list.size(); pair_id++) {
       IntCode bucket_id = one_batch_pair_list[pair_id].first;
       IntCode neighbor_bucket_id = one_batch_pair_list[pair_id].second;
-      if (splited_bucket_map_.find(bucket_id) != splited_bucket_map_.end()) {
-        //std::swap(bucket_id, neighbor_bucket_id);
+      if (bucket_id >= OriginBucketSize() || 
+          splited_bucket_map_.find(bucket_id) != splited_bucket_map_.end()) {
+        std::swap(bucket_id, neighbor_bucket_id);
       }
       ConnectTwoBucketPoints(bucket2point_list, point2bi_neighbors, 
                              bucket_id, neighbor_bucket_id, to_update_candidates);

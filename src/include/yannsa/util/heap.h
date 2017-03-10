@@ -46,7 +46,7 @@ class Heap {
 
     int SafeUniqInsert(const PointType& new_point) {
       ScopedLock lock = ScopedLock(lock_);
-      UniqInsert(new_point);
+      return UniqInsert(new_point);
     }
 
     int UniqInsert(const PointType& new_point) {
