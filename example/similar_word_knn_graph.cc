@@ -86,7 +86,7 @@ int CreateDataset(const string& file_path,
     //check dim num
     assert(dim_count == vec_dim);
 
-    dataset_ptr->Insert(word, point);
+    dataset_ptr->insert(word, point);
     
     has_read_num++;
     if (has_read_num % 10000 == 0) {
@@ -95,7 +95,7 @@ int CreateDataset(const string& file_path,
   }
 
   cout << "create data and query set done, data num: " 
-       << dataset_ptr->Size() << endl;
+       << dataset_ptr->size() << endl;
 
   return vec_dim;
 }
@@ -139,11 +139,11 @@ int main() {
   vector<string> result_intersection;
   int k = 10;
   int hit_count = 0;
-  auto iter = dataset_ptr->Begin();
+  auto iter = dataset_ptr->begin();
   //ofstream true_file("word_rep_data_result");
   LogTime("start query search");
-  //for(int query_id = 0; iter != querys_ptr->End(); iter++, query_id++) {
-  for(int query_id = 0; iter != dataset_ptr->End(); iter++, query_id++) {
+  //for(int query_id = 0; iter != querys_ptr->end(); iter++, query_id++) {
+  for(int query_id = 0; iter != dataset_ptr->end(); iter++, query_id++) {
     if (query_id % 10000 == 0) {
       LogTime("ground truth test ");
       cout << query_id << endl;
@@ -175,7 +175,7 @@ int main() {
     //cout << "precision: " << cur_hit_count * 1.0 / k << endl << endl;
   }
   LogTime("end query search");
-  cout << "average precision: " << hit_count * 1.0 / (k *dataset_ptr->Size()) << endl;
+  cout << "average precision: " << hit_count * 1.0 / (k *dataset_ptr->size()) << endl;
 
   return 0;
 }

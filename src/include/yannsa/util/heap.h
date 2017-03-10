@@ -11,7 +11,7 @@ namespace util {
 template <typename PointType>
 class Heap {
   public:
-    typedef typename std::vector<PointType>::iterator Iterator;
+    typedef typename std::vector<PointType>::iterator iterator;
 
   public:
     Heap(int max_size = 0) {
@@ -20,27 +20,27 @@ class Heap {
       heap_.reserve(max_size_);
     }
 
-    inline void Clear() {
+    inline void clear() {
       heap_.clear();
     }
 
-    inline size_t Size() {
+    inline size_t size() {
       return heap_.size();
     }
 
-    inline Iterator Begin() {
+    inline iterator begin() {
       return heap_.begin();
     }
 
-    inline Iterator End() {
+    inline iterator end() {
       return heap_.end();
     }
 
-    inline void Sort() {
+    inline void sort() {
       std::sort_heap(heap_.begin(), heap_.end());
     }
 
-    inline void Reset() {
+    inline void reset() {
       std::make_heap(heap_.begin(), heap_.end());
     }
 
@@ -53,13 +53,13 @@ class Heap {
       if (find(heap_.begin(), heap_.end(), new_point) != heap_.end()) {
         return 0;
       }
-      return Insert(new_point);
+      return insert(new_point);
     }
 
-    int Insert(const PointType& new_point) {
-      size_t cur_size = Size();
+    int insert(const PointType& new_point) {
+      size_t cur_size = size();
       if (max_size_ == 0 || cur_size < max_size_) {
-        Push(new_point);
+        push(new_point);
         return 1;
       }
       else if (cur_size > 0) {
@@ -67,27 +67,27 @@ class Heap {
         // max heap
         if (new_point < top_point) {
           // remove old top one
-          Pop();
+          pop();
 
           // add current new one
-          Push(new_point);
+          push(new_point);
           return 1;
         }
       }
       return 0;
     }
 
-    void Push(const PointType& new_point) {
+    void push(const PointType& new_point) {
       heap_.push_back(new_point);
       std::push_heap(heap_.begin(), heap_.end());
     }
 
-    void Pop() {
+    void pop() {
       std::pop_heap(heap_.begin(), heap_.end());
       heap_.pop_back();
     }
 
-    PointType& Front() {
+    PointType& front() {
       return heap_.front(); 
     }
   private:

@@ -9,26 +9,26 @@ using namespace yannsa::util;
 
 TEST(HeapTest, Create) {
   Heap<int> h(5);
-  ASSERT_EQ(h.Size(), 0);
+  ASSERT_EQ(h.size(), 0);
 }
 
 TEST(HeapTest, Insert) {
   Heap<int> h(3);
 
-  h.Insert(10);
-  ASSERT_EQ(h.Size(), 1);
+  h.insert(10);
+  ASSERT_EQ(h.size(), 1);
 
   int items[] = {3, 2, 1, 5, 6};
   for (int& item : items) {
-    h.Insert(item);
+    h.insert(item);
   }
-  ASSERT_EQ(h.Size(), 3);
+  ASSERT_EQ(h.size(), 3);
 
-  Heap<int>::Iterator iter = h.Begin();
+  Heap<int>::iterator iter = h.begin();
   ASSERT_EQ(*iter, 3);
 
-  h.Sort();
-  Heap<int>::Iterator iter2 = h.Begin();
+  h.sort();
+  Heap<int>::iterator iter2 = h.begin();
   ASSERT_EQ(*iter2, 1);
 }
 
@@ -47,15 +47,15 @@ TEST(HeapTest, InsertObj) {
   };
 
   Heap<Obj> h(3);
-  h.Insert(Obj(3, "abc"));
-  h.Insert(Obj(2, "def"));
+  h.insert(Obj(3, "abc"));
+  h.insert(Obj(2, "def"));
 
-  Heap<Obj>::Iterator iter = h.Begin();
+  Heap<Obj>::iterator iter = h.begin();
   ASSERT_EQ(iter->num, 2);
   ASSERT_EQ(iter->str, "def");
 
-  h.Insert(Obj(5, "tbc"));
-  Heap<Obj>::Iterator iter2 = h.Begin();
+  h.insert(Obj(5, "tbc"));
+  Heap<Obj>::iterator iter2 = h.begin();
   ASSERT_EQ(iter2->str, "tbc");
 }
 

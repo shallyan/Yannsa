@@ -1,5 +1,5 @@
-#ifndef YANNSA_POINT_PAIR_DISTANCE_TABLE_H
-#define YANNSA_POINT_PAIR_DISTANCE_TABLE_H
+#ifndef YANNSA_POINT_PAIR_H
+#define YANNSA_POINT_PAIR_H
 
 #include <map>
 #include <set>
@@ -10,45 +10,45 @@ namespace yannsa {
 namespace util {
 
 template <typename IndexType>
-class PointPairTable {
+class PointPairSet {
   public:
-    typedef std::pair<IndexType, IndexType> TableKey;
-    typedef typename std::set<TableKey>::iterator Iterator;
+    typedef std::pair<IndexType, IndexType> Key;
+    typedef typename std::set<Key>::iterator iterator;
 
   public:
-    bool Exist(IndexType point_a, IndexType point_b) {
-      TableKey key = ConstructKey(point_a, point_b);
+    bool exist(IndexType point_a, IndexType point_b) {
+      Key key = ConstructKey(point_a, point_b);
       return table.find(key) != table.end();
     }
 
-    void Insert(IndexType point_a, IndexType point_b) {
-      TableKey key = ConstructKey(point_a, point_b);
+    void insert(IndexType point_a, IndexType point_b) {
+      Key key = ConstructKey(point_a, point_b);
       table.insert(key);
     }
 
-    void Erase(IndexType point_a, IndexType point_b) {
-      TableKey key = ConstructKey(point_a, point_b);
+    void erase(IndexType point_a, IndexType point_b) {
+      Key key = ConstructKey(point_a, point_b);
       table.erase(key);
     }
 
-    Iterator Begin() {
+    iterator begin() {
       return table.begin();
     }
 
-    Iterator End() {
+    iterator end() {
       return table.end();
     }
 
-    inline int Size() {
+    inline int size() {
       return table.size();
     }
   private:
-    TableKey ConstructKey(IndexType point_a, IndexType point_b) {
+    Key ConstructKey(IndexType point_a, IndexType point_b) {
       return (point_a < point_b ? std::make_pair(point_a, point_b) : std::make_pair(point_b, point_a));
     }
 
   private:
-    std::set<TableKey> table;
+    std::set<Key> table;
 };
 
 template <typename IndexType>

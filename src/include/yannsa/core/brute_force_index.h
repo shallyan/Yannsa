@@ -31,16 +31,16 @@ class BruteForceIndex : public BaseIndex<PointType, DistanceFuncType, DistanceTy
       DistanceFuncType distance_func;
       util::Heap<PointDistancePairItem> k_candidates(k); 
 
-      typename Dataset::Iterator data_iter = this->dataset_ptr_->Begin();
-      while (data_iter != this->dataset_ptr_->End()) {
+      typename Dataset::iterator data_iter = this->dataset_ptr_->begin();
+      while (data_iter != this->dataset_ptr_->end()) {
         DistanceType dist = distance_func(data_iter->second, query); 
-        k_candidates.Insert(PointDistancePairItem(data_iter->first, dist));
+        k_candidates.insert(PointDistancePairItem(data_iter->first, dist));
         data_iter++;
       } 
 
-      k_candidates.Sort();
-      auto candidate_iter = k_candidates.Begin();
-      for (; candidate_iter != k_candidates.End(); candidate_iter++) {
+      k_candidates.sort();
+      auto candidate_iter = k_candidates.begin();
+      for (; candidate_iter != k_candidates.end(); candidate_iter++) {
         search_result.push_back(candidate_iter->id);
       }
     }

@@ -1,4 +1,4 @@
-#include "yannsa/util/point_pair_distance_table.h"
+#include "yannsa/util/point_pair.h"
 #include <gtest/gtest.h>
 #include <string>
 #include <vector>
@@ -7,7 +7,7 @@ using namespace std;
 using namespace yannsa;
 using namespace yannsa::util;
 
-TEST(PointPairDistanceTableTest, Create) {
-  PointPairDistanceTable<int, float> t;
+TEST(PointPairSetTest, Create) {
+  PointPairSet<int> t;
 }
 

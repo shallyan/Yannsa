@@ -14,10 +14,10 @@ template <typename PointType>
 class Container {
   public:
     typedef std::pair<std::string, PointType> KeyPointPair;
-    typedef typename std::vector<KeyPointPair>::iterator Iterator;
+    typedef typename std::vector<KeyPointPair>::iterator iterator;
 
   public:
-    void Insert(const std::string& key, const PointType& new_point) {
+    void insert(const std::string& key, const PointType& new_point) {
       if (key2index_.find(key) != key2index_.end()) {
         throw KeyExistError("Key already exists!");
       }
@@ -26,25 +26,25 @@ class Container {
       index2key_point_pair_.push_back(std::make_pair(key, new_point));
     }
 
-    inline size_t Size() const {
+    inline size_t size() const {
       return index2key_point_pair_.size();
     }
 
-    void Clear() {
+    void clear() {
       key2index_.clear();
       index2key_point_pair_.clear();
     }
 
-    inline Iterator Begin() {
+    inline iterator begin() {
       return index2key_point_pair_.begin();
     }
 
-    inline Iterator End() {
+    inline iterator end() {
       return index2key_point_pair_.end();
     }
 
     // thread-safe get
-    inline const PointType& Get(const std::string& key) {
+    inline const PointType& GetPoint(const std::string& key) {
       // user ensure existence
       std::unordered_map<std::string, IntIndex>::const_iterator iter = key2index_.find(key);
       return index2key_point_pair_[iter->second].second; 
