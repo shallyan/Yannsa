@@ -111,6 +111,8 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
       bucket2key_point_.clear();
       merged_bucket_map_.clear();
       splited_bucket_map_.clear();
+
+      need_refined_point_flag_.clear();
     }
 
     void Encode2Buckets(BucketId2PointList& bucket2point_list); 
@@ -352,9 +354,9 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
   // firstly set not-need-refine point flag false
   #pragma omp parallel for schedule(static)
   for (IntIndex point_id = 0; point_id < max_point_id; point_id++) {
-    if (!need_refined_point_flag_[point_id]) {
-      PointHeap& neighbor_heap = all_point_knn_graph_[point_id];
-      for (auto iter = neighbor_heap.begin(); iter != neighbor_heap.end(); iter++) {
+    PointHeap& neighbor_heap = all_point_knn_graph_[point_id];
+    for (auto iter = neighbor_heap.begin(); iter != neighbor_heap.end(); iter++) {
+      if (!need_refined_point_flag_[point_id] || !need_refined_point_flag_[iter->id]) {
         iter->flag = false;
       }
     }
