@@ -190,6 +190,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
   private:
     std::vector<std::string> point_id2key_;
     ContinuesPointKnnGraph all_point_knn_graph_;
+    DynamicBitset need_refined_point_flag_;
 
     BucketId2PointList bucket2key_point_;
 
@@ -217,6 +218,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::InitPointIndex(int p
 
     iter++;
   }
+
+  need_refined_point_flag_ = DynamicBitset(PointSize(), 0);
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
@@ -344,9 +347,20 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
     int iteration_num) {
 
-  int sample_num = 10;
-
   int max_point_id = PointSize();
+
+  // firstly set not-need-refine point flag false
+  #pragma omp parallel for schedule(static)
+  for (IntIndex point_id = 0; point_id < max_point_id; point_id++) {
+    if (!need_refined_point_flag_[point_id]) {
+      PointHeap& neighbor_heap = all_point_knn_graph_[point_id];
+      for (auto iter = neighbor_heap.begin(); iter != neighbor_heap.end(); iter++) {
+        iter->flag = false;
+      }
+    }
+  }
+
+  int sample_num = 10;
   for (int loop = 0; loop < iteration_num; loop++) {
     // init
     PointId2PointList point2old(max_point_id), point2new(max_point_id);
@@ -498,7 +512,11 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdateKnnGraph(
   for (int point_id = 0; point_id < to_update_candidates.size(); point_id++) {
     PointHeap& candidate_heap = to_update_candidates[point_id];
     for (auto iter = candidate_heap.begin(); iter != candidate_heap.end(); iter++) {
-      UpdatePointKnn(point_id, iter->id, iter->distance);
+      int update_count = UpdatePointKnn(point_id, iter->id, iter->distance);
+      if (update_count > 0) {
+        need_refined_point_flag_[point_id] = 1;
+        need_refined_point_flag_[iter->id]= 1;
+      }
     }
   }
 }
