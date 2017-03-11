@@ -282,7 +282,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   util::Log("end connect buckets");
 
   util::Log("start refine ");
-  RefineByExpansion(30);
+  RefineByExpansion(100);
   util::Log("end refine");
 
   // build
@@ -617,12 +617,13 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
     #pragma omp parallel for schedule(dynamic, 20)
     for (int point_id = 0; point_id < to_update_candidates.size(); point_id++) {
       PointHeap& candidate_heap = to_update_candidates[point_id];
+      int update_count = 0;
       for (auto iter = candidate_heap.begin(); iter != candidate_heap.end(); iter++) {
-        int update_count = UpdatePointKnn(point_id, iter->id, iter->distance);
-        if (update_count > 0) {
-          need_refined_point_flag_[point_id] = 1;
-          need_refined_point_flag_[iter->id]= 1;
-        }
+        update_count += UpdatePointKnn(point_id, iter->id, iter->distance);
+      }
+      // only refine one side
+      if (update_count > 0) {
+        need_refined_point_flag_[point_id] = 1;
       }
     }
   }
