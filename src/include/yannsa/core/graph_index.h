@@ -13,6 +13,7 @@
 #include <omp.h>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <string>
 #include <memory>
 #include <algorithm>
@@ -31,6 +32,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
   private:
     typedef std::vector<char> DynamicBitset;
     typedef std::vector<IntIndex> IdList;
+    typedef std::unordered_set<IntIndex> IdSet;
 
     // bucket
     typedef std::vector<IdList> BucketId2PointList;
@@ -177,8 +179,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
     int UpdatePointKnn(IntIndex point1, IntIndex point2, DistanceType dist);
 
-    void UpdateKnnGraph(ContinuesPointKnnGraph& to_update_candidates);
-
     void Sample(IdList& point_list, IdList& sampled_point_list, int sample_num); 
 
     void RefineByExpansion(int iteration_num); 
@@ -296,8 +296,9 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::UniquePoint2PointLis
   #pragma omp parallel for schedule(static)
   for (IntIndex point_id = 0; point_id < point2point_list.size(); point_id++) {
     IdList& point_list = point2point_list[point_id];
-    std::sort(point_list.begin(), point_list.end());
-    point_list.resize(std::distance(point_list.begin(), std::unique(point_list.begin(), point_list.end())));
+    IdSet point_set(point_list.begin(), point_list.end());
+    IdList uniq_point_list = IdList(point_set.begin(), point_set.end());
+    point_list.swap(uniq_point_list);
   }
 }
 
@@ -363,11 +364,17 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
   }
 
   int sample_num = 10;
+  PointId2PointList point2old(max_point_id), point2new(max_point_id),
+                    point2old_reverse(max_point_id), point2new_reverse(max_point_id);
   for (int loop = 0; loop < iteration_num; loop++) {
     // init
-    PointId2PointList point2old(max_point_id), point2new(max_point_id);
     #pragma omp parallel for schedule(static)
     for (IntIndex cur_point_id = 0; cur_point_id < max_point_id; cur_point_id++) {
+      point2old[cur_point_id].clear();
+      point2old_reverse[cur_point_id].clear();
+      point2new[cur_point_id].clear();
+      point2new_reverse[cur_point_id].clear();
+
       PointHeap& neighbor_heap = all_point_knn_graph_[cur_point_id];
       for (auto iter = neighbor_heap.begin(); iter != neighbor_heap.end(); iter++) {
         if (iter->flag) {
@@ -383,7 +390,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
     }
 
     // reverse
-    PointId2PointList point2old_reverse(max_point_id), point2new_reverse(max_point_id);
     GetPointReverseNeighbors(point2old, point2old_reverse);
     GetPointReverseNeighbors(point2new, point2new_reverse);
 
@@ -402,21 +408,21 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
       new_list.insert(new_list.end(), new_reverse_sampled_list.begin(), new_reverse_sampled_list.end());
 
       // unique
-      std::sort(old_list.begin(), old_list.end());
-      std::sort(new_list.begin(), new_list.end());
-      old_list.resize(std::distance(old_list.begin(), std::unique(old_list.begin(), old_list.end())));
-      new_list.resize(std::distance(new_list.begin(), std::unique(new_list.begin(), new_list.end())));
+      IdSet old_set(old_list.begin(), old_list.end());
+      IdSet new_set(new_list.begin(), new_list.end());
+      IdList uniq_old_list(old_set.begin(), old_set.end());
+      IdList uniq_new_list(new_set.begin(), new_set.end());
 
       // update new 
-      for (IntIndex u1 : new_list) {
+      for (IntIndex u1 : uniq_new_list) {
         const PointType& point_vec = GetPoint(u1);
-        for (IntIndex u2 : new_list) {
+        for (IntIndex u2 : uniq_new_list) {
           if (u1 < u2) {
             DistanceType dist = distance_func_(point_vec, GetPoint(u2));
             update_count += UpdatePointKnn(u1, u2, dist);
           }
         }
-        for (IntIndex u2 : old_list) {
+        for (IntIndex u2 : uniq_old_list) {
           DistanceType dist = distance_func_(point_vec, GetPoint(u2));
           update_count += UpdatePointKnn(u1, u2, dist);
         }
@@ -507,23 +513,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::DivideConnectPairLis
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdateKnnGraph(
-    ContinuesPointKnnGraph& to_update_candidates) {
-
-  #pragma omp parallel for schedule(dynamic, 20)
-  for (int point_id = 0; point_id < to_update_candidates.size(); point_id++) {
-    PointHeap& candidate_heap = to_update_candidates[point_id];
-    for (auto iter = candidate_heap.begin(); iter != candidate_heap.end(); iter++) {
-      int update_count = UpdatePointKnn(point_id, iter->id, iter->distance);
-      if (update_count > 0) {
-        need_refined_point_flag_[point_id] = 1;
-        need_refined_point_flag_[iter->id]= 1;
-      }
-    }
-  }
-}
-
-template <typename PointType, typename DistanceFuncType, typename DistanceType>
 int GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointKnn(
     IntIndex point1, IntIndex point2, DistanceType dist) {
 
@@ -532,7 +521,6 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointKnn(
   }
 
   int update_count = 0;
-  
   update_count += all_point_knn_graph_[point1].SafeUniqInsert(PointDistancePairItem(point2, dist));
   update_count += all_point_knn_graph_[point2].SafeUniqInsert(PointDistancePairItem(point1, dist));
 
@@ -607,10 +595,14 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
   BatchNeighborConnectBucketPairs(bucket_knn_graph, connect_pairs_batch);
 
   // then merger neighbors
+  ContinuesPointKnnGraph to_update_candidates(all_point_knn_graph_.size(), PointHeap(point_neighbor_num));
   for (util::PointPairList<IntCode>& one_batch_pair_list : connect_pairs_batch) {
-    ContinuesPointKnnGraph to_update_candidates(all_point_knn_graph_.size(), PointHeap(point_neighbor_num));
+    #pragma omp parallel for schedule(static)
+    for (int point_id  = 0; point_id < PointSize(); point_id++) {
+      to_update_candidates[point_id].clear();
+    }
 
-    #pragma omp parallel for schedule(dynamic, 5)
+    #pragma omp parallel for schedule(dynamic, 1)
     for (int pair_id = 0; pair_id < one_batch_pair_list.size(); pair_id++) {
       IntCode bucket_id = one_batch_pair_list[pair_id].first;
       IntCode neighbor_bucket_id = one_batch_pair_list[pair_id].second;
@@ -622,7 +614,17 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucketPoints(
                              bucket_id, neighbor_bucket_id, to_update_candidates);
     }
 
-    UpdateKnnGraph(to_update_candidates);
+    #pragma omp parallel for schedule(dynamic, 20)
+    for (int point_id = 0; point_id < to_update_candidates.size(); point_id++) {
+      PointHeap& candidate_heap = to_update_candidates[point_id];
+      for (auto iter = candidate_heap.begin(); iter != candidate_heap.end(); iter++) {
+        int update_count = UpdatePointKnn(point_id, iter->id, iter->distance);
+        if (update_count > 0) {
+          need_refined_point_flag_[point_id] = 1;
+          need_refined_point_flag_[iter->id]= 1;
+        }
+      }
+    }
   }
 }
 
@@ -808,7 +810,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildPointsKnnGraph(
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildAllBucketsPointsKnnGraph(
     BucketId2PointList& bucket2point_list) {
-  #pragma omp parallel for schedule(dynamic, 5)
+  #pragma omp parallel for schedule(dynamic, 1)
   for (IntIndex bucket_id = 0; bucket_id < bucket2point_list.size(); bucket_id++) {
     BuildPointsKnnGraph(bucket2point_list[bucket_id], all_point_knn_graph_);
   }

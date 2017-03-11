@@ -116,11 +116,11 @@ int main() {
   CosineGraphIndexPtr<float> graph_index_ptr(new CosineGraphIndex<float>(dataset_ptr));
   util::GraphIndexParameter param;
   param.point_neighbor_num = 10;
-  param.bucket_key_point_num = 50;
-  param.bucket_neighbor_num = 12;
+  param.bucket_key_point_num = 10;
+  param.bucket_neighbor_num = 10;
 #if defined(LITTLE_DATA_TEST)
   param.min_bucket_size = 50;
-  param.max_bucket_size = 500;
+  param.max_bucket_size = 200;
 #elif defined(LARGE_DATA_TEST)
   param.min_bucket_size = 500;
   param.max_bucket_size = 2000;
