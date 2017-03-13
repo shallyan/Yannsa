@@ -277,7 +277,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   util::Log("end connect buckets");
 
   util::Log("start refine ");
-  RefineByExpansion(100);
+  RefineByExpansion(30);
   util::Log("end refine");
 
   // build
@@ -347,7 +347,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
 
   int max_point_id = PointSize();
 
-  int sample_num = 5;
   PointId2PointList point2old(max_point_id), point2new(max_point_id),
                     point2old_reverse(max_point_id), point2new_reverse(max_point_id);
   for (int loop = 0; loop < iteration_num; loop++) {
@@ -362,10 +361,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
       PointHeap& neighbor_heap = all_point_knn_graph_[cur_point_id];
       for (auto iter = neighbor_heap.begin(); iter != neighbor_heap.end(); iter++) {
         if (iter->flag) {
-          if (point2new[cur_point_id].size() <= sample_num) {
-            point2new[cur_point_id].push_back(iter->id);
-            iter->flag = false;
-          }
+          point2new[cur_point_id].push_back(iter->id);
+          iter->flag = false;
         }
         else {
           point2old[cur_point_id].push_back(iter->id);
@@ -380,20 +377,16 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
     int update_count = 0;
     #pragma omp parallel for schedule(dynamic, 20) default(shared) reduction(+:update_count)
     for (IntIndex cur_point_id = 0; cur_point_id < max_point_id; cur_point_id++) {
-      // sample reverse  
-      IdList old_reverse_sampled_list, new_reverse_sampled_list;
-      Sample(point2old_reverse[cur_point_id], old_reverse_sampled_list, sample_num);
-      Sample(point2new_reverse[cur_point_id], new_reverse_sampled_list, sample_num);
-      /*
-      IdList old_reverse_sampled_list = point2old_reverse[cur_point_id];
-      IdList new_reverse_sampled_list = point2new_reverse[cur_point_id];
-      */
-
-      // merge
-      IdList& old_list = point2old[cur_point_id];
       IdList& new_list = point2new[cur_point_id];
-      old_list.insert(old_list.end(), old_reverse_sampled_list.begin(), old_reverse_sampled_list.end());
-      new_list.insert(new_list.end(), new_reverse_sampled_list.begin(), new_reverse_sampled_list.end());
+      IdList& new_reverse_list = point2new_reverse[cur_point_id];
+      if (new_list.size() == 0 && new_reverse_list.size() == 0) {
+        continue;
+      }
+      new_list.insert(new_list.end(), new_reverse_list.begin(), new_reverse_list.end());
+
+      IdList& old_list = point2old[cur_point_id];
+      IdList& old_reverse_list = point2old_reverse[cur_point_id];
+      old_list.insert(old_list.end(), old_reverse_list.begin(), old_reverse_list.end());
 
       // unique
       IdSet old_set(old_list.begin(), old_list.end());
