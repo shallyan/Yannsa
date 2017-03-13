@@ -82,15 +82,20 @@ int main() {
   CosineBruteForceIndexPtr<float> truth_index_ptr(new CosineBruteForceIndex<float>(dataset_ptr));
 
   int k = 11;
-  vector<string> actual_result;
-  ofstream true_file("data/glove_10w_knn");
-
-  LogTime("start query search");
+  vector<vector<string> > real_knn(dataset_ptr->size());
   #pragma omp parallel for schedule(static)
   for(int query_id = 0; query_id < dataset_ptr->size(); query_id++) {
-    truth_index_ptr->SearchKnn(dataset_ptr->data_at(query_id), k, actual_result);
+    truth_index_ptr->SearchKnn(dataset_ptr->data_at(query_id), k, real_knn[query_id]);
+  }
+
+  ofstream true_file("data/glove_10w_knn");
+  for(int query_id = 0; query_id < dataset_ptr->size(); query_id++) {
     true_file << dataset_ptr->key_at(query_id) << " ";
+    vector<string>& actual_result = real_knn[query_id];
     for (int i = 1; i < actual_result.size(); i++) {
+      if (dataset_ptr->key_at(query_id) != actual_result[0]) {
+        cout << "error" << endl;
+      }
       true_file << actual_result[i] << " ";
     }
     true_file << endl;
