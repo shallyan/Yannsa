@@ -38,3 +38,6 @@ similar_word_precision : $(EXAMPLE_ROOT)/similar_word_precision.cc
 
 similar_word_search : $(EXAMPLE_ROOT)/similar_word_search.cc
 	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
+
+similar_word_brute_force : $(EXAMPLE_ROOT)/similar_word_brute_force.cc
+	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^

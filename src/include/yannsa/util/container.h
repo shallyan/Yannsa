@@ -35,6 +35,14 @@ class Container {
       index2key_point_pair_.clear();
     }
 
+    inline const PointType& data_at(IntIndex i) {
+      return index2key_point_pair_[i].second;
+    }
+
+    inline const std::string& key_at(IntIndex i) {
+      return index2key_point_pair_[i].first;
+    }
+
     inline iterator begin() {
       return index2key_point_pair_.begin();
     }

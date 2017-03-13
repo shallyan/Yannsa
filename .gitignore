@@ -36,6 +36,7 @@ yannsa_test
 similar_word_knn_graph
 similar_word_search
 similar_word_precision
+similar_word_brute_force
 tags
 
 count.sh
