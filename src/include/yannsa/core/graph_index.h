@@ -17,6 +17,8 @@
 #include <string>
 #include <memory>
 #include <algorithm>
+#include <ctime>
+#include <iostream>
 
 namespace yannsa {
 namespace core {
@@ -227,42 +229,70 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   */
 
   // encode
-  util::Log("before encode");
   BucketId2PointList bucket2point_list;
+  {
+  clock_t s, e;
+  s = clock();
   Encode2Buckets(bucket2point_list);
-  util::Log("encode done");
+  e = clock();
+  std::cout << "encode: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
+  }
 
   InitBucketIndex();
 
   // construct bucket knn graph
-  util::Log("before bucket knn graph");
   BucketKnnGraph bucket_knn_graph(OriginBucketSize(), BucketHeap(index_param.bucket_neighbor_num));
+  {
+  clock_t s, e;
+  s = clock();
   BuildBucketsKnnGraph(bucket_knn_graph);
-  util::Log("end bucket knn graph");
+  e = clock();
+  std::cout << "build bucket knn graph: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
+  }
 
-  util::Log("before split merge bucket");
+  {
+  clock_t s, e;
+  s = clock();
   SplitMergeBuckets(bucket2point_list, bucket_knn_graph, 
                     index_param.max_bucket_size, index_param.min_bucket_size); 
-  util::Log("end split merge bucket");
+  e = clock();
+  std::cout << "split and merge: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
+  }
 
   // build point knn graph
-  util::Log("before all point knn graph");
+  {
+  clock_t s, e;
+  s = clock();
   BuildAllBucketsPointsKnnGraph(bucket2point_list);
-  util::Log("end all point knn graph");
+  e = clock();
+  std::cout << "build all point knn graph: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
+  }
 
   // find key points in bucket
-  util::Log("before find bucket key points");
+  {
+  clock_t s, e;
+  s = clock();
   SortBucketPointsByInDegree(bucket2point_list, index_param.bucket_key_point_num);
-  util::Log("end find bucket key points");
+  e = clock();
+  std::cout << "sort in degree: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
+  }
 
   // join bucket knn graph1 and graph
-  util::Log("before connect buckets");
+  {
+  clock_t s, e;
+  s = clock();
   LocalitySensitiveSearch(bucket2point_list, bucket_knn_graph, index_param.point_neighbor_num); 
-  util::Log("end connect buckets");
+  e = clock();
+  std::cout << "connect buckets: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
+  }
 
-  util::Log("start refine ");
+  {
+  clock_t s, e;
+  s = clock();
   RefineByExpansion(index_param.refine_iter_num);
-  util::Log("end refine");
+  e = clock();
+  std::cout << "refine: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
+  }
 
   // build
   this->have_built_ = true;
