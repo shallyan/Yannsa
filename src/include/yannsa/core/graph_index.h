@@ -616,14 +616,28 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSea
 
   // get reverse neighbor
   PointId2PointList point2bi_neighbors(PointSize());
+  {
+  clock_t s, e;
+  s = clock();
   GetPointBidirectionalNeighbors(point2bi_neighbors); 
+  e = clock();
+  std::cout << "reverse neighbor: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
+  }
 
   std::vector<util::PointPairList<IntCode> > connect_pairs_batch;
   // get need splited bucket pair firstly
+  {
+  clock_t s, e;
+  s = clock();
   BatchSplitedConnectBucketPairs(connect_pairs_batch);
+  e = clock();
+  std::cout << "batch splited: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
+  }
 
   // then merge splited buckets
   {
+  clock_t s, e;
+  s = clock();
   ContinuesPointKnnGraph to_update_candidates(all_point_knn_graph_.size(), PointHeap(point_neighbor_num));
   for (util::PointPairList<IntCode>& one_batch_pair_list : connect_pairs_batch) {
     #pragma omp parallel for schedule(static)
@@ -647,11 +661,16 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSea
       }
     }
   }
+  e = clock();
+  std::cout << "connect splited: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
   }
 
   // get need connected bucket pair
   util::PointPairSet<IntCode> has_selected_connect_pair_set;
   BucketId2BucketIdList bucket2connect_list(OriginBucketSize(), IdList());
+  {
+  clock_t s, e;
+  s = clock();
   for (IntIndex bucket_id = 0; bucket_id < OriginBucketSize(); bucket_id++) {
     auto& neighbor_buckets_heap = bucket_knn_graph[bucket_id];
     for (auto iter = neighbor_buckets_heap.begin();
@@ -674,7 +693,12 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSea
       bucket2connect_list[from_bucket].push_back(target_bucket);
     }
   }
+  e = clock();
+  std::cout << "bucket to connect list: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
+  }
   {
+  clock_t s, e;
+  s = clock();
   ContinuesPointKnnGraph to_update_candidates(all_point_knn_graph_.size(), PointHeap(point_neighbor_num));
   #pragma omp parallel for schedule(dynamic, 1)
   for (IntIndex bucket_id = 0; bucket_id < OriginBucketSize(); bucket_id++) {
@@ -693,7 +717,9 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSea
       UpdatePointKnn(point_id, iter->id, iter->distance);
     }
   }
-}
+  e = clock();
+  std::cout << "bucket to neighbor: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
+  }
 
 }
 
