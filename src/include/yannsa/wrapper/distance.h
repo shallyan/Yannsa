@@ -16,18 +16,6 @@ struct DotDistance {
   }
 };
 
-// - cosine similarity
-template <typename DistanceType>
-struct CosineDistance {
-  template <typename CoordinateType>
-  DistanceType operator()(const PointVector<CoordinateType>& point_a, 
-                          const PointVector<CoordinateType>& point_b) {
-    auto normalized_point_a = point_a.normalized();
-    auto normalized_point_b = point_b.normalized();
-    return -normalized_point_a.dot(normalized_point_b);
-  }
-};
-
 // euclidean distance
 template <typename DistanceType>
 struct EuclideanDistance {

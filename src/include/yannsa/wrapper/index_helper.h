@@ -12,20 +12,20 @@ namespace yannsa {
 namespace wrapper {
 
 template <typename CoordinateType>
-using CosineGraphIndex = core::GraphIndex<PointVector<CoordinateType>, 
-                                          CosineDistance<CoordinateType>, 
-                                          CoordinateType>;
+using DotGraphIndex = core::GraphIndex<PointVector<CoordinateType>, 
+                                       DotDistance<CoordinateType>, 
+                                       CoordinateType>;
 
 template <typename CoordinateType>
-using CosineGraphIndexPtr = std::shared_ptr<CosineGraphIndex<CoordinateType> >;
+using DotGraphIndexPtr = std::shared_ptr<DotGraphIndex<CoordinateType> >;
 
 template <typename CoordinateType>
-using CosineBruteForceIndex = core::BruteForceIndex<PointVector<CoordinateType>, 
-                                                    CosineDistance<CoordinateType>, 
-                                                    CoordinateType>;
+using DotBruteForceIndex = core::BruteForceIndex<PointVector<CoordinateType>, 
+                                                 DotDistance<CoordinateType>, 
+                                                 CoordinateType>;
 
 template <typename CoordinateType>
-using CosineBruteForceIndexPtr = std::shared_ptr<CosineBruteForceIndex<CoordinateType> >;
+using DotBruteForceIndexPtr = std::shared_ptr<DotBruteForceIndex<CoordinateType> >;
 
 } // namespace wrapper 
 } // namespace yannsa

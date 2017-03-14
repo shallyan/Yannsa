@@ -1,4 +1,5 @@
 #include "yannsa/util/parameter.h"
+#include "yannsa/util/logging.h"
 #include "yannsa/wrapper/distance.h"
 #include "yannsa/wrapper/index_helper.h"
 #include "yannsa/wrapper/binary_encoder.h"
@@ -13,12 +14,6 @@ using namespace std;
 using namespace yannsa;
 using namespace yannsa::util;
 using namespace yannsa::wrapper;
-
-void LogTime(const std::string& prompt) {
-  time_t now = time(0);
-  char* dt = ctime(&now);
-  cout << prompt << ": " << dt;
-}
 
 void ReadGroundTruth(const string& file_path,
                      unordered_map<string, vector<string> >& ground_truth) {
@@ -80,6 +75,7 @@ int CreateDataset(const string& file_path,
     while (one_word_vec_stream >> value){ 
       point[dim_count++] = value;
     }
+    point.normalize();
 
     //check dim num
     assert(dim_count == vec_dim);
@@ -100,11 +96,9 @@ int CreateDataset(const string& file_path,
 
 int main() {
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
-  LogTime("start read dataset");
   int point_dim = CreateDataset("data/glove_10w", dataset_ptr);
-  LogTime("end read dataset");
   
-  CosineGraphIndexPtr<float> graph_index_ptr(new CosineGraphIndex<float>(dataset_ptr));
+  DotGraphIndexPtr<float> graph_index_ptr(new DotGraphIndex<float>(dataset_ptr));
   util::GraphIndexParameter param;
   param.point_neighbor_num = 10;
   param.bucket_key_point_num = 10;
@@ -114,9 +108,7 @@ int main() {
   BaseEncoderPtr<PointVector<float> > 
       binary_encoder_ptr(new BinaryEncoder<PointVector<float>, float>(point_dim, 10));
 
-  LogTime("start build index");
   graph_index_ptr->Build(param, binary_encoder_ptr);
-  LogTime("end build index");
 
   unordered_map<string, vector<string> > ground_truth; 
   ReadGroundTruth("data/glove_10w_knn", ground_truth);
@@ -126,10 +118,8 @@ int main() {
   int k = 10;
   int hit_count = 0;
   auto iter = dataset_ptr->begin();
-  LogTime("start query search");
   for(int query_id = 0; iter != dataset_ptr->end(); iter++, query_id++) {
     if (query_id % 10000 == 0) {
-      LogTime("ground truth test ");
       cout << query_id << endl;
     }
     
@@ -149,7 +139,6 @@ int main() {
     hit_count += cur_hit_count;
     //cout << "precision: " << cur_hit_count * 1.0 / k << endl << endl;
   }
-  LogTime("end query search");
   cout << "average precision: " << hit_count * 1.0 / (k *dataset_ptr->size()) << endl;
 
   return 0;

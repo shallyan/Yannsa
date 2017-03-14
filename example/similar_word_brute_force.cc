@@ -1,4 +1,5 @@
 #include "yannsa/util/parameter.h"
+#include "yannsa/util/logging.h"
 #include "yannsa/wrapper/distance.h"
 #include "yannsa/wrapper/index_helper.h"
 #include "yannsa/wrapper/binary_encoder.h"
@@ -14,12 +15,6 @@ using namespace std;
 using namespace yannsa;
 using namespace yannsa::util;
 using namespace yannsa::wrapper;
-
-void LogTime(const std::string& prompt) {
-  time_t now = time(0);
-  char* dt = ctime(&now);
-  cout << prompt << ": " << dt;
-}
 
 int CreateDataset(const string& file_path,
                   DatasetPtr<float>& dataset_ptr) { 
@@ -50,9 +45,10 @@ int CreateDataset(const string& file_path,
     PointVector<float> point(vec_dim);
     double value = 0.0;
     int dim_count = 0;
-    while (one_word_vec_stream >> value){ 
+    while (one_word_vec_stream >> value) { 
       point[dim_count++] = value;
     }
+    point.normalize();
 
     //check dim num
     assert(dim_count == vec_dim);
@@ -75,11 +71,9 @@ int main() {
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   DatasetPtr<float> querys_ptr(new Dataset<float>());
 
-  LogTime("start read dataset");
   int point_dim = CreateDataset("data/glove_10w", dataset_ptr);
-  LogTime("end read dataset");
   
-  CosineBruteForceIndexPtr<float> truth_index_ptr(new CosineBruteForceIndex<float>(dataset_ptr));
+  DotBruteForceIndexPtr<float> truth_index_ptr(new DotBruteForceIndex<float>(dataset_ptr));
 
   int k = 11;
   vector<vector<string> > real_knn(dataset_ptr->size());

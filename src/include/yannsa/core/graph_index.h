@@ -229,8 +229,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
 
   InitPointIndex(index_param.point_neighbor_num);
 
-  /*
   // random 
+  /*
   util::IntRandomGenerator rg(0, PointSize()-1);
   for (int i = 0; i < PointSize(); i++) {
     PointHeap& h = all_point_knn_graph_[i];
@@ -242,6 +242,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
     }
   }
   */
+
   // encode
   util::Log("before encode");
   BucketId2PointList bucket2point_list;

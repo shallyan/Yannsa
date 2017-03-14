@@ -21,6 +21,22 @@ class IntRandomGenerator {
     std::mt19937 random_generator_;
 };
 
+template <typename CoordinateType>
+class RealRandomGenerator {
+  public:
+    RealRandomGenerator(CoordinateType begin, CoordinateType end) 
+        : distribution_generator_(begin, end), random_generator_(/*std::random_device()()*/0) {
+    }
+
+    CoordinateType Random() {
+      return distribution_generator_(random_generator_);
+    }
+  
+  private:
+    std::uniform_real_distribution<CoordinateType> distribution_generator_;
+    std::mt19937 random_generator_;
+};
+
 } // namespace util
 } // namespace yannsa
 

@@ -1,4 +1,4 @@
-CXX=g++
+CXX=g++-6
 CXX_FLAGS=-std=c++11 -O3 -march=native -fopenmp
 
 YANNSA_INC=src/include/
@@ -33,10 +33,13 @@ EXAMPLE_ROOT=example
 similar_word_knn_graph: $(EXAMPLE_ROOT)/similar_word_knn_graph.cc
 	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
 
-similar_word_precision : $(EXAMPLE_ROOT)/similar_word_precision.cc
+similar_word_knn_graph_test: $(EXAMPLE_ROOT)/similar_word_knn_graph_test.cc
 	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
 
-similar_word_search : $(EXAMPLE_ROOT)/similar_word_search.cc
+similar_word_precision: $(EXAMPLE_ROOT)/similar_word_precision.cc
+	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
+
+similar_word_search: $(EXAMPLE_ROOT)/similar_word_search.cc
 	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
 
 similar_word_brute_force : $(EXAMPLE_ROOT)/similar_word_brute_force.cc
