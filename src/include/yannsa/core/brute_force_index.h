@@ -20,7 +20,7 @@ class BruteForceIndex : public BaseIndex<PointType, DistanceFuncType, DistanceTy
     typedef typename BaseClass::PointVector PointVector;
 
   private:
-    typedef PointDistancePair<std::string, DistanceType> PointDistancePairItem;
+    typedef PointDistancePair<IntIndex, DistanceType> PointDistancePairItem;
 
   public:
     BruteForceIndex(typename BaseClass::DatasetPtr& dataset_ptr) : BaseClass(dataset_ptr) {}
@@ -31,17 +31,15 @@ class BruteForceIndex : public BaseIndex<PointType, DistanceFuncType, DistanceTy
       DistanceFuncType distance_func;
       util::Heap<PointDistancePairItem> k_candidates(k); 
 
-      typename Dataset::iterator data_iter = this->dataset_ptr_->begin();
-      while (data_iter != this->dataset_ptr_->end()) {
-        DistanceType dist = distance_func(data_iter->second, query); 
-        k_candidates.insert(PointDistancePairItem(data_iter->first, dist));
-        data_iter++;
+      for (IntIndex i = 0; i < this->dataset_ptr_->size(); i++) { 
+        DistanceType dist = distance_func((*this->dataset_ptr_)[i], query); 
+        k_candidates.insert(PointDistancePairItem(i, dist));
       } 
 
       k_candidates.sort();
       auto candidate_iter = k_candidates.begin();
       for (; candidate_iter != k_candidates.end(); candidate_iter++) {
-        search_result.push_back(candidate_iter->id);
+        search_result.push_back(this->dataset_ptr_->GetKeyById(candidate_iter->id));
       }
     }
 };

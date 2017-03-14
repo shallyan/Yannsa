@@ -21,16 +21,6 @@ TEST(DistanceHelperTest, DotDistance) {
   ASSERT_NEAR(dot_distance_func(point_a, point_b), -2.6, precision);
 }
 
-TEST(DistanceHelperTest, CosineDistance) {
-  PointVector<float> point_a(3);
-  point_a << 1.0, 1.3, 0.7;
-
-  PointVector<float> point_b(3);
-  point_b << 1.0, -2.0, 2.3;
-
-  CosineDistance<float> cosine_distance_func ;
-  ASSERT_NEAR(cosine_distance_func(point_a, point_b), -0.001748, precision);
-}
 
 TEST(DistanceHelperTest, EuclideanDistance) {
   PointVector<float> point_a(3);

@@ -21,7 +21,7 @@ TEST(ContainerTest, AddPoint) {
   ASSERT_THROW(dataset.insert("point_a", point_a), KeyExistError); 
 }
 
-TEST(ContainerTest, Iterator) {
+TEST(ContainerTest, Visit) {
   PointVector<int> point_a(3);
   point_a << 1, 2, 3;
 
@@ -33,14 +33,6 @@ TEST(ContainerTest, Iterator) {
   dataset.insert("point_a", point_a); 
   dataset.insert("point_b", point_b); 
 
-  Dataset::iterator iter = dataset.begin();
-  ASSERT_EQ(iter->first, "point_a");
-  ASSERT_EQ(iter->second[0], 1);
-
-  iter++;
-  ASSERT_EQ(iter->first, "point_b");
-  ASSERT_EQ(iter->second[0], 2);
-
-  iter++;
-  ASSERT_EQ(iter, dataset.end());
+  ASSERT_EQ(dataset.GetKeyById(0), "point_a");
+  ASSERT_EQ(dataset[0][0], 1);
 }

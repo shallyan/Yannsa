@@ -59,39 +59,36 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
                    std::vector<std::string>& search_result); 
 
     // for test
-    void GraphKnn(const std::string& query_key, 
+    void GraphKnn(IntIndex query_id, 
                   int k, 
                   std::vector<std::string>& search_result) {
       search_result.clear();
 
-      int index;
-      for (index = 0; index < point_id2key_.size(); index++) {
-        if (point_id2key_[index] == query_key) {
-          break;
-        }
-      }
       // copy to not change heap
-      auto neighbor_heap = all_point_knn_graph_[index];
+      auto neighbor_heap = all_point_knn_graph_[query_id];
       neighbor_heap.sort();
       auto iter = neighbor_heap.begin();
       for (; iter != neighbor_heap.end(); iter++) {
-        search_result.push_back(point_id2key_[iter->id]);
+        search_result.push_back(this->dataset_ptr_->GetKeyById(iter->id));
       }
     }
 
   private:
-    void InitPointIndex(int point_neighbor_num);
+    void InitPointIndex(int point_neighbor_num) {
+      IntIndex max_point_id = this->dataset_ptr_->size();
+      all_point_knn_graph_ = ContinuesPointKnnGraph(max_point_id, PointHeap(point_neighbor_num));
+    }
 
     void InitBucketIndex() {
       bucket2key_point_ = BucketId2PointList(OriginBucketSize());
     }
 
     inline const PointType& GetPoint(IntIndex point_id) {
-      return this->dataset_ptr_->GetPoint(point_id2key_[point_id]);
+      return (*this->dataset_ptr_)[point_id];
     }
     
     inline IntIndex PointSize() {
-      return point_id2key_.size();
+      return all_point_knn_graph_.size();
     }
 
     inline IntIndex OriginBucketSize() {
@@ -104,7 +101,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
     void clear() {
       // point
-      point_id2key_.clear();
       all_point_knn_graph_.clear();
 
       // bucket
@@ -188,7 +184,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     void UniquePoint2PointList(PointId2PointList& point2point_list); 
 
   private:
-    std::vector<std::string> point_id2key_;
     ContinuesPointKnnGraph all_point_knn_graph_;
 
     BucketId2PointList bucket2key_point_;
@@ -203,21 +198,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     util::BaseEncoderPtr<PointType> encoder_ptr_;
     DistanceFuncType distance_func_;
 };
-
-template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::InitPointIndex(int point_neighbor_num) {
-  typename Dataset::iterator iter = this->dataset_ptr_->begin();
-  while (iter != this->dataset_ptr_->end()) {
-    std::string& key = iter->first;
-
-    // record point key and index
-    IntIndex point_id = point_id2key_.size();
-    point_id2key_.push_back(key);
-    all_point_knn_graph_.push_back(PointHeap(point_neighbor_num));
-
-    iter++;
-  }
-}
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
@@ -610,9 +590,9 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::Encode2Buckets(
     BucketId2PointList& bucket2point_list) { 
   // encode
-  std::vector<IntCode> point_code_list(point_id2key_.size());
+  std::vector<IntCode> point_code_list(PointSize());
   #pragma omp parallel for schedule(static)
-  for (IntIndex point_id = 0; point_id < point_id2key_.size(); point_id++) {
+  for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
     IntCode point_code = encoder_ptr_->Encode(GetPoint(point_id));
     point_code_list[point_id] = point_code;
   }
@@ -650,7 +630,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SplitBuckets(
     BucketId2PointList& bucket2point_list, 
     int max_bucket_size, int min_bucket_size) {
 
-  IntIndex origin_max_bucket_id = bucket2point_list.size();
+  IntIndex origin_max_bucket_id = OriginBucketSize();
   for (IntIndex bucket_id = 0; bucket_id < origin_max_bucket_id; bucket_id++) {
     if (bucket2point_list[bucket_id].size() <= max_bucket_size + min_bucket_size) {
       continue;
@@ -930,7 +910,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
   result_candidates_heap.sort();
   auto result_iter = result_candidates_heap.begin();
   for (; result_iter != result_candidates_heap.end(); result_iter++) {
-    search_result.push_back(point_id2key_[result_iter->id]);
+    search_result.push_back(this->dataset_ptr_->GetKeyById(result_iter->id));
   }
 }
 

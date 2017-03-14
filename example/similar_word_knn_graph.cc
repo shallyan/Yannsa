@@ -123,11 +123,13 @@ int main() {
       cout << query_id << endl;
     }
     
-    graph_index_ptr->GraphKnn(iter->first, k, graph_result);
+    graph_result.clear();
+    graph_index_ptr->GraphKnn(query_id, k, graph_result);
+    std::string query = dataset_ptr->GetKeyById(query_id);
     
     actual_result.clear();
-    actual_result.insert(actual_result.end(), ground_truth[iter->first].begin(), 
-                                              ground_truth[iter->first].begin()+k);
+    actual_result.insert(actual_result.end(), ground_truth[query].begin(), 
+                                              ground_truth[query].begin()+k);
     sort(actual_result.begin(), actual_result.end());
     sort(graph_result.begin(), graph_result.end());
 
