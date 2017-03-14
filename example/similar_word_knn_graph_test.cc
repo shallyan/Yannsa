@@ -109,17 +109,19 @@ int CreateDataset(const string& file_path,
   return vec_dim;
 }
 
-int main() {
+int main(int argc, char** argv) {
+  util::GraphIndexParameter param;
+  param.point_neighbor_num = atoi(argv[1]);
+  param.bucket_key_point_num = atoi(argv[2]);
+  param.bucket_neighbor_num = atoi(argv[3]);
+  param.min_bucket_size = atoi(argv[4]);
+  param.max_bucket_size = atoi(argv[5]);
+  param.refine_iter_num = atoi(argv[6]);
+
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   int point_dim = CreateDataset("data/glove_10w", dataset_ptr);
   
   EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
-  util::GraphIndexParameter param;
-  param.point_neighbor_num = 10;
-  param.bucket_key_point_num = 10;
-  param.bucket_neighbor_num = 10;
-  param.min_bucket_size = 50;
-  param.max_bucket_size = 200;
   BaseEncoderPtr<PointVector<float> > 
       binary_encoder_ptr(new BinaryEncoder<PointVector<float>, float>(point_dim, 10));
 

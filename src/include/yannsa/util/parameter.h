@@ -10,6 +10,7 @@ struct GraphIndexParameter {
   int bucket_key_point_num;
   int min_bucket_size;
   int max_bucket_size;
+  int refine_iter_num;
 };
 
 } // namespace util

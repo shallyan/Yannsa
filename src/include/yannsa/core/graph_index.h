@@ -258,7 +258,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   util::Log("end connect buckets");
 
   util::Log("start refine ");
-  RefineByExpansion(30);
+  RefineByExpansion(index_param.refine_iter_num);
   util::Log("end refine");
 
   // build
@@ -327,7 +327,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
     int iteration_num) {
 
   int max_point_id = PointSize();
-
   PointId2PointList point2old(max_point_id), point2new(max_point_id),
                     point2old_reverse(max_point_id), point2new_reverse(max_point_id);
   for (int loop = 0; loop < iteration_num; loop++) {
