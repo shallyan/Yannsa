@@ -202,6 +202,7 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
     const util::GraphIndexParameter& index_param,
     util::BaseEncoderPtr<PointType>& encoder_ptr) { 
+  util::Log("before build");
   encoder_ptr_ = encoder_ptr;
 
   clear();
@@ -290,6 +291,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
 
   // build
   this->have_built_ = true;
+
+  util::Log("end build");
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
@@ -496,7 +499,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucket2Neighb
     //check whether this search can update graph 
     PointDistancePairItem min_point_dist = to_update_candidates[point_id].GetMinValue();
     DistanceType start_dist = min_point_dist.distance;
-    bool is_skip_neighbors = (start_dist >= all_point_knn_graph_[point_id].GetMinValue().distance);
+    //bool is_skip_neighbors = (start_dist >= all_point_knn_graph_[point_id].GetMinValue().distance);
+    bool is_skip_neighbors = false;
 
     // neighbor and reverse neighbor
     IntIndex start_point_id = min_point_dist.id;
@@ -665,6 +669,9 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSea
 
     ConnectBucket2Neighbor(bucket2point_list, bucket_id, to_connect_list, to_update_candidates);
   }
+  clock_t e1;
+  e1 = clock();
+  std::cout << "connect neighbor: " << (e1-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
   #pragma omp parallel for schedule(dynamic, 20)
   for (int point_id = 0; point_id < to_update_candidates.size(); point_id++) {
     PointHeap& candidate_heap = to_update_candidates[point_id];
@@ -673,7 +680,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSea
     }
   }
   e = clock();
-  std::cout << "bucket to neighbor: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
+  std::cout << "connect neighbor update: " << (e-e1)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
   }
 
 }
@@ -891,20 +898,20 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SortBucketPointsByIn
       continue;
     }
 
-    InDegreeHeap min_in_degree_heap(0);
+    InDegreeHeap in_degree_heap(0);
     for (auto point_id : point_list) {
-      min_in_degree_heap.push(PointDistancePair<IntIndex, int>(point_id, point_in_degree_count[point_id]));
+      in_degree_heap.push(PointDistancePair<IntIndex, int>(point_id, -point_in_degree_count[point_id]));
     }
-    min_in_degree_heap.sort();
+    in_degree_heap.sort();
     point_list.clear();
-    for (auto point_iter = min_in_degree_heap.begin(); 
-              point_iter != min_in_degree_heap.end(); point_iter++) {
+    for (auto point_iter = in_degree_heap.begin(); 
+              point_iter != in_degree_heap.end(); point_iter++) {
       point_list.push_back(point_iter->id);
     }
 
     DynamicBitset point_pass_flag(PointSize(), 0);
-    for (auto point_iter = min_in_degree_heap.begin(); 
-              point_iter != min_in_degree_heap.end(); point_iter++) {
+    for (auto point_iter = in_degree_heap.begin(); 
+              point_iter != in_degree_heap.end(); point_iter++) {
       if (point_pass_flag[point_iter->id]) {
         continue;
       }
