@@ -162,12 +162,10 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
                                  BucketKnnGraph& bucket_knn_graph, int point_neighbor_num); 
 
     void ConnectTwoBucketPoints(BucketId2PointList& bucket2point_list, 
-                                PointId2PointList& point2bi_neighbors,
                                 IntIndex bucket_id, IntIndex neighbor_bucket_id,
                                 ContinuesPointKnnGraph& to_update_candidates);
 
     void ConnectBucket2Neighbor(BucketId2PointList& bucket2point_list, 
-                                PointId2PointList& point2bi_neighbors,
                                 IntIndex bucket_id, IdList& neighbor_bucket_list,
                                 ContinuesPointKnnGraph& to_update_candidates);
 
@@ -184,10 +182,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
     void GetPointReverseNeighbors(PointId2PointList& point2point_list, 
                                   PointId2PointList& point2reverse_neighbors); 
-
-    void GetPointBidirectionalNeighbors(PointId2PointList& point2bi_neighbors); 
-    void UniquePoint2PointList(PointId2PointList& point2point_list); 
-
   private:
     ContinuesPointKnnGraph all_point_knn_graph_;
 
@@ -299,19 +293,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::UniquePoint2PointList(
-    PointId2PointList& point2point_list) {
-
-  #pragma omp parallel for schedule(static)
-  for (IntIndex point_id = 0; point_id < point2point_list.size(); point_id++) {
-    IdList& point_list = point2point_list[point_id];
-    IdSet point_set(point_list.begin(), point_list.end());
-    IdList uniq_point_list = IdList(point_set.begin(), point_set.end());
-    point_list.swap(uniq_point_list);
-  }
-}
-
-template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::GetPointReverseNeighbors(
     PointId2PointList& point2point_list, 
     PointId2PointList& point2reverse_neighbors) {
@@ -323,22 +304,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::GetPointReverseNeigh
     }
   }
   // won't repeat
-}
-
-template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::GetPointBidirectionalNeighbors(
-    PointId2PointList& point2bi_neighbors) {
-
-  for (IntIndex point_id = 0; point_id < all_point_knn_graph_.size(); point_id++) {
-    PointHeap& neighbor_heap = all_point_knn_graph_[point_id];
-    for (auto iter = neighbor_heap.begin(); iter != neighbor_heap.end(); iter++) {
-      point2bi_neighbors[iter->id].push_back(point_id);
-      point2bi_neighbors[point_id].push_back(iter->id);
-    }
-  }
-   
-  // unique neighbor list
-  UniquePoint2PointList(point2bi_neighbors);
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
@@ -496,7 +461,6 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointKnn(
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucket2Neighbor(
     BucketId2PointList& bucket2point_list, 
-    PointId2PointList& point2bi_neighbors,
     IntIndex bucket_id, IdList& neighbor_bucket_list,
     ContinuesPointKnnGraph& to_update_candidates) {
 
@@ -529,7 +493,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucket2Neighb
       point_has_searched_flag[point_id] = 1;
     }
 
-    /*
     //check whether this search can update graph 
     PointDistancePairItem min_point_dist = to_update_candidates[point_id].GetMinValue();
     DistanceType start_dist = min_point_dist.distance;
@@ -537,8 +500,10 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucket2Neighb
 
     // neighbor and reverse neighbor
     IntIndex start_point_id = min_point_dist.id;
-    IdList& bi_neighbors = point2bi_neighbors[point_id];
-    for (auto neighbor_point_id : bi_neighbors) {
+    PointHeap& neighbor_heap = all_point_knn_graph_[point_id];
+    for (auto iter = neighbor_heap.begin(); 
+              iter != neighbor_heap.end(); iter++) {
+      IntIndex neighbor_point_id = iter->id;
       if (point_has_searched_flag[neighbor_point_id] || !bucket_point_flag[neighbor_point_id]) {
         continue;
       }
@@ -553,14 +518,12 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucket2Neighb
                            visited_point_flag);
       point_has_searched_flag[neighbor_point_id] = 1;
     }
-    */
   }
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectTwoBucketPoints(
     BucketId2PointList& bucket2point_list, 
-    PointId2PointList& point2bi_neighbors,
     IntIndex bucket_id, IntIndex neighbor_bucket_id,
     ContinuesPointKnnGraph& to_update_candidates) {
 
@@ -593,10 +556,12 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectTwoBucketPoin
 
     point_has_searched_flag[point_id] = 1;
 
-    // neighbor and reverse neighbor
-    IdList& bi_neighbors = point2bi_neighbors[point_id];
+    // neighbor
     start_point_id = to_update_candidates[point_id].GetMinValue().id;
-    for (auto neighbor_point_id : bi_neighbors) {
+    PointHeap& neighbor_heap = all_point_knn_graph_[point_id];
+    for (auto iter = neighbor_heap.begin(); 
+              iter != neighbor_heap.end(); iter++) {
+      IntIndex neighbor_point_id = iter->id;
       if (point_has_searched_flag[neighbor_point_id] || !bucket_point_flag[neighbor_point_id]) {
         continue;
       }
@@ -613,16 +578,6 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSearch(
     BucketId2PointList& bucket2point_list, BucketKnnGraph& bucket_knn_graph,
     int point_neighbor_num) {
-
-  // get reverse neighbor
-  PointId2PointList point2bi_neighbors(PointSize());
-  {
-  clock_t s, e;
-  s = clock();
-  GetPointBidirectionalNeighbors(point2bi_neighbors); 
-  e = clock();
-  std::cout << "reverse neighbor: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
-  }
 
   std::vector<util::PointPairList<IntCode> > connect_pairs_batch;
   // get need splited bucket pair firstly
@@ -649,8 +604,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSea
     for (int pair_id = 0; pair_id < one_batch_pair_list.size(); pair_id++) {
       IntCode bucket_id = one_batch_pair_list[pair_id].first;
       IntCode neighbor_bucket_id = one_batch_pair_list[pair_id].second;
-      ConnectTwoBucketPoints(bucket2point_list, point2bi_neighbors, 
-                             bucket_id, neighbor_bucket_id, to_update_candidates);
+      ConnectTwoBucketPoints(bucket2point_list, bucket_id, neighbor_bucket_id, to_update_candidates);
     }
 
     #pragma omp parallel for schedule(dynamic, 20)
@@ -672,14 +626,16 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSea
   clock_t s, e;
   s = clock();
   for (IntIndex bucket_id = 0; bucket_id < OriginBucketSize(); bucket_id++) {
+    IntIndex from_bucket = bucket_id;
+    if (merged_bucket_map_.find(from_bucket) != merged_bucket_map_.end()) {
+      from_bucket = merged_bucket_map_[from_bucket];
+    }
+    IdList& to_connect_list = bucket2connect_list[from_bucket];
     auto& neighbor_buckets_heap = bucket_knn_graph[bucket_id];
     for (auto iter = neighbor_buckets_heap.begin();
               iter != neighbor_buckets_heap.end(); iter++) {
-      IntIndex from_bucket = bucket_id, target_bucket = iter->id;
+      IntIndex target_bucket = iter->id;
       // from bucket and target bucket may be merged
-      if (merged_bucket_map_.find(from_bucket) != merged_bucket_map_.end()) {
-        from_bucket = merged_bucket_map_[from_bucket];
-      }
       if (merged_bucket_map_.find(target_bucket) != merged_bucket_map_.end()) {
         target_bucket = merged_bucket_map_[target_bucket];
       }
@@ -690,7 +646,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSea
         continue;
       }
       has_selected_connect_pair_set.insert(from_bucket, target_bucket);
-      bucket2connect_list[from_bucket].push_back(target_bucket);
+      to_connect_list.push_back(target_bucket);
     }
   }
   e = clock();
@@ -707,8 +663,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSea
       continue;
     }
 
-    ConnectBucket2Neighbor(bucket2point_list, point2bi_neighbors, 
-                           bucket_id, to_connect_list, to_update_candidates);
+    ConnectBucket2Neighbor(bucket2point_list, bucket_id, to_connect_list, to_update_candidates);
   }
   #pragma omp parallel for schedule(dynamic, 20)
   for (int point_id = 0; point_id < to_update_candidates.size(); point_id++) {
