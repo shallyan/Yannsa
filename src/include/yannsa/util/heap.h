@@ -12,6 +12,7 @@ template <typename PointType>
 class Heap {
   public:
     typedef typename std::vector<PointType>::iterator iterator;
+    typedef typename std::vector<PointType>::reverse_iterator reverse_iterator;
 
   public:
     Heap(int max_size = 0) {
@@ -28,12 +29,26 @@ class Heap {
       return heap_.size();
     }
 
+    inline void resize(int new_size) {
+      while (size() > new_size) {
+        pop();
+      }
+    }
+
     inline iterator begin() {
       return heap_.begin();
     }
 
     inline iterator end() {
       return heap_.end();
+    }
+
+    inline reverse_iterator rbegin() {
+      return heap_.rbegin();
+    }
+
+    inline reverse_iterator rend() {
+      return heap_.rend();
     }
 
     inline void sort() {

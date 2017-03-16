@@ -80,9 +80,9 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     }
 
   private:
-    void InitPointIndex(int point_neighbor_num) {
+    void InitPointIndex() {
       IntIndex max_point_id = this->dataset_ptr_->size();
-      all_point_knn_graph_ = ContinuesPointKnnGraph(max_point_id, PointHeap(point_neighbor_num));
+      all_point_knn_graph_ = ContinuesPointKnnGraph(max_point_id, PointHeap(max_point_neighbor_num_));
     }
 
     void InitBucketIndex() {
@@ -162,11 +162,11 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
                               DynamicBitset& visited_point_flag);
 
     void LocalitySensitiveSearch(BucketId2PointList& bucket2point_list, 
-                                 BucketKnnGraph& bucket_knn_graph, int point_neighbor_num); 
+                                 BucketKnnGraph& bucket_knn_graph);
 
     void GetBucket2ConnectBucketList(BucketKnnGraph& bucket_knn_graph, BucketId2BucketIdList& bucket2connect_list);
 
-    void ConnectSplitedBuckets(BucketId2PointList& bucket2point_list, int point_neighbor_num);
+    void ConnectSplitedBuckets(BucketId2PointList& bucket2point_list);
 
     void ConnectTwoBucketPoints(BucketId2PointList& bucket2point_list, 
                                 IntIndex bucket_id, IntIndex neighbor_bucket_id,
@@ -190,6 +190,8 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     void GetPointReverseNeighbors(PointId2PointList& point2point_list, 
                                   PointId2PointList& point2reverse_neighbors); 
   private:
+    int point_neighbor_num_;
+    int max_point_neighbor_num_;
     ContinuesPointKnnGraph all_point_knn_graph_;
 
     BucketId2PointList bucket2key_point_;
@@ -211,46 +213,22 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
     util::BaseEncoderPtr<PointType>& encoder_ptr) { 
   util::Log("before build");
   encoder_ptr_ = encoder_ptr;
+  point_neighbor_num_ = index_param.point_neighbor_num;
+  max_point_neighbor_num_ = index_param.max_point_neighbor_num;
 
   clear();
 
-  InitPointIndex(index_param.point_neighbor_num);
-
-  // random 
-  /*
-  util::IntRandomGenerator rg(0, PointSize()-1);
-  for (int i = 0; i < PointSize(); i++) {
-    PointHeap& h = all_point_knn_graph_[i];
-    for (int j = 0; j < index_param.point_neighbor_num*3; j++) {
-      int nei = rg.Random();
-      if (nei != i) {
-        h.UniqInsert(PointDistancePairItem(nei, 1000000.0));
-      }
-    }
-  }
-  */
+  InitPointIndex();
 
   // encode
   BucketId2PointList bucket2point_list;
-  {
-  clock_t s, e;
-  s = clock();
   Encode2Buckets(bucket2point_list);
-  e = clock();
-  std::cout << "encode: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
-  }
 
   InitBucketIndex();
 
   // construct bucket knn graph
   BucketKnnGraph bucket_knn_graph(OriginBucketSize(), BucketHeap(index_param.bucket_neighbor_num));
-  {
-  clock_t s, e;
-  s = clock();
   BuildBucketsKnnGraph(bucket_knn_graph);
-  e = clock();
-  std::cout << "build bucket knn graph: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
-  }
 
   {
   clock_t s, e;
@@ -280,7 +258,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   }
 
   // join bucket knn graph1 and graph
-  LocalitySensitiveSearch(bucket2point_list, bucket_knn_graph, index_param.point_neighbor_num); 
+  LocalitySensitiveSearch(bucket2point_list, bucket_knn_graph);
 
   {
   clock_t s, e;
@@ -288,6 +266,10 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   RefineByExpansion(index_param.refine_iter_num);
   e = clock();
   std::cout << "refine: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
+  }
+
+  for (IntIndex cur_point_id = 0; cur_point_id < PointSize(); cur_point_id++) {
+    all_point_knn_graph_[cur_point_id].resize(point_neighbor_num_);
   }
 
   // build
@@ -469,7 +451,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucket2Neighb
     ContinuesPointKnnGraph& to_update_candidates) {
 
   const IdList& bucket_point_list = bucket2point_list[bucket_id];
-
   DynamicBitset point_has_searched_flag(PointSize(), 0);
 
   // connect bucket_id and neighbor_bucket_list
@@ -498,7 +479,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucket2Neighb
     // check whether this search can update graph 
     DistanceType point_min_dist = to_update_candidates[point_id].GetMinValue().distance;
     if (point_min_dist >= all_point_knn_graph_[point_id].GetMaxValue().distance) {
-      to_update_candidates[point_id].clear();
       continue;
     }
 
@@ -522,18 +502,13 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucket2Neighb
                              start_point_id, to_update_candidates[neighbor_point_id],
                              visited_point_flag);
       }
-
-      DistanceType neighbor_min_dist = to_update_candidates[neighbor_point_id].GetMinValue().distance;
-      if (neighbor_min_dist >= all_point_knn_graph_[neighbor_point_id].GetMaxValue().distance) {
-        to_update_candidates[neighbor_point_id].clear();
-      }
     }
   }
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectSplitedBuckets(
-    BucketId2PointList& bucket2point_list, int point_neighbor_num) {
+    BucketId2PointList& bucket2point_list) {
 
   std::vector<util::PointPairList<IntCode> > connect_pairs_batch;
   // get need splited bucket pair firstly
@@ -552,7 +527,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectSplitedBucket
   // then merge splited buckets
   clock_t s, e;
   s = clock();
-  ContinuesPointKnnGraph to_update_candidates(PointSize(), PointHeap(point_neighbor_num));
+  ContinuesPointKnnGraph to_update_candidates(PointSize(), PointHeap(max_point_neighbor_num_));
   for (util::PointPairList<IntCode>& one_batch_pair_list : connect_pairs_batch) {
     #pragma omp parallel for schedule(static)
     for (int point_id  = 0; point_id < PointSize(); point_id++) {
@@ -569,8 +544,12 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectSplitedBucket
     #pragma omp parallel for schedule(dynamic, 20)
     for (int point_id = 0; point_id < to_update_candidates.size(); point_id++) {
       PointHeap& candidate_heap = to_update_candidates[point_id];
+      int update_count = 0;
       for (auto iter = candidate_heap.begin(); iter != candidate_heap.end(); iter++) {
-        UpdatePointKnn(point_id, iter->id, iter->distance);
+        update_count += UpdatePointKnn(point_id, iter->id, iter->distance);
+      }
+      if (update_count == 0) {
+        candidate_heap.resize(point_neighbor_num_);
       }
     }
   }
@@ -664,17 +643,16 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::GetBucket2ConnectBuc
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSearch(
-    BucketId2PointList& bucket2point_list, BucketKnnGraph& bucket_knn_graph,
-    int point_neighbor_num) {
+    BucketId2PointList& bucket2point_list, BucketKnnGraph& bucket_knn_graph) {
 
-  ConnectSplitedBuckets(bucket2point_list, point_neighbor_num);
+  ConnectSplitedBuckets(bucket2point_list);
 
   BucketId2BucketIdList bucket2connect_list(OriginBucketSize(), IdList());
   GetBucket2ConnectBucketList(bucket_knn_graph, bucket2connect_list);
 
   clock_t s, e;
   s = clock();
-  ContinuesPointKnnGraph to_update_candidates(PointSize(), PointHeap(point_neighbor_num));
+  ContinuesPointKnnGraph to_update_candidates(PointSize(), PointHeap(max_point_neighbor_num_));
   #pragma omp parallel for schedule(dynamic, 1)
   for (IntIndex bucket_id = 0; bucket_id < OriginBucketSize(); bucket_id++) {
     IdList& to_connect_list = bucket2connect_list[bucket_id];
@@ -1050,8 +1028,12 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::GreedyFindKnnInGraph
 
     // explore current nearest point's neighbor
     PointHeap& point_neighbor = knn_graph[cur_nearest_point];
-    auto neighbor_iter = point_neighbor.begin();
-    for (; neighbor_iter != point_neighbor.end(); neighbor_iter++) {
+    auto neighbor_iter = point_neighbor.rbegin();
+    int neighbor_count = 0;
+    for (; neighbor_iter != point_neighbor.rend(); neighbor_count++, neighbor_iter++) {
+      if (neighbor_count >= point_neighbor_num_) {
+        break;
+      }
       if (visited_point_flag[neighbor_iter->id]) {
         continue;
       }
