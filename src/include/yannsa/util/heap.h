@@ -12,11 +12,9 @@ template <typename PointType>
 class Heap {
   public:
     typedef typename std::vector<PointType>::iterator iterator;
-    typedef typename std::vector<PointType>::reverse_iterator reverse_iterator;
 
   public:
     Heap(int max_size = 0) {
-      // 0 means no max size
       max_size_ = max_size;
       heap_.reserve(max_size_);
     }
@@ -29,10 +27,17 @@ class Heap {
       return heap_.size();
     }
 
-    inline void resize(int new_size) {
-      while (size() > new_size) {
-        pop();
-      }
+    inline size_t effect_size(size_t used_size) {
+      return std::min(size(), used_size);
+    }
+
+    inline void resize(size_t new_size) {
+      max_size_ = std::min(new_size, size());
+      heap_.resize(max_size_);
+    }
+
+    inline const PointType& operator[](int i) {
+      return heap_[i];
     }
 
     inline iterator begin() {
@@ -43,37 +48,43 @@ class Heap {
       return heap_.end();
     }
 
-    inline reverse_iterator rbegin() {
-      return heap_.rbegin();
-    }
-
-    inline reverse_iterator rend() {
-      return heap_.rend();
-    }
-
     inline void sort() {
       std::sort_heap(heap_.begin(), heap_.end());
     }
 
-    inline void reset() {
-      std::make_heap(heap_.begin(), heap_.end());
-    }
-
-    int SafeUniqInsert(const PointType& new_point) {
+    size_t parallel_insert_array(const PointType& new_point) {
       ScopedLock lock = ScopedLock(lock_);
-      return UniqInsert(new_point);
+      return insert_array(new_point);
     }
 
-    int UniqInsert(const PointType& new_point) {
-      if (find(heap_.begin(), heap_.end(), new_point) != heap_.end()) {
-        return 0;
+    size_t insert_array(const PointType& new_point) {
+      // find insert postion
+      size_t pos = size();
+      while (pos >= 1 && new_point < heap_[pos-1]) {
+        pos--;
       }
-      return insert(new_point);
+
+      // check repeat
+      if (pos >= 1 && heap_[pos-1] == new_point) {
+        return max_size_;
+      }
+
+      // resize array size+1
+      if (size() < max_size_) {
+        heap_.push_back(new_point);
+      }
+
+      // put new point at pos
+      for (size_t i = size(); i > pos+1; i--) {
+        heap_[i-1] = heap_[i-2];
+      }
+      heap_[pos] = new_point;
+      return pos;
     }
 
-    int insert(const PointType& new_point) {
+    size_t insert_heap(const PointType& new_point) {
       size_t cur_size = size();
-      if (max_size_ == 0 || cur_size < max_size_) {
+      if (cur_size < max_size_) {
         push(new_point);
         return 1;
       }
@@ -116,7 +127,7 @@ class Heap {
 
   private:
     std::vector<PointType> heap_;
-    int max_size_;
+    size_t max_size_;
     Mutex lock_;
 };
 

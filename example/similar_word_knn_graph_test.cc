@@ -118,6 +118,7 @@ int main(int argc, char** argv) {
   param.min_bucket_size = atoi(argv[5]);
   param.max_bucket_size = atoi(argv[6]);
   param.refine_iter_num = atoi(argv[7]);
+  param.search_point_neighbor_num = atoi(argv[8]);
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   int point_dim = CreateDataset("data/glove_10w", dataset_ptr);
