@@ -17,7 +17,7 @@ struct PointDistancePair {
   DistanceType distance;
   bool flag;
 
-  PointDistancePair(IndexType point_id=0, DistanceType dist=0, bool f=true) : 
+  PointDistancePair(IndexType point_id, DistanceType dist, bool f=true) : 
                     id(point_id), distance(dist), flag(f) {}
 
   inline bool operator<(const PointDistancePair& point_distance_pair) const {
