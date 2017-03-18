@@ -767,6 +767,8 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindBucketKeyPoints(
     BucketId2PointList& bucket2point_list, int key_point_num) {
 
+  key_point_num = std::max(key_point_num, 1);
+
   #pragma omp parallel for schedule(static)
   for (IntIndex bucket_id = 0; bucket_id < bucket2point_list.size(); bucket_id++) {
     IdList& point_list = bucket2point_list[bucket_id];
@@ -775,6 +777,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindBucketKeyPoints(
     }
 
     DynamicBitset point_pass_flag(PointSize(), 0);
+    size_t neighbor_pass_size = point_list.size() / key_point_num;
     for (IntIndex point_id : point_list) {
       if (point_pass_flag[point_id]) {
         continue;
@@ -792,7 +795,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindBucketKeyPoints(
 
       // pass current key point's neighbor (use max_point_neighbor_num_ for max margin)
       PointNeighbor& neighbor_heap = all_point_knn_graph_[point_id];
-      size_t neighbor_effect_size = neighbor_heap.effect_size(max_point_neighbor_num_);
+      size_t neighbor_effect_size = neighbor_heap.effect_size(neighbor_pass_size);
       for (size_t i = 0; i < neighbor_effect_size; i++) {
         IntIndex neighbor_id = neighbor_heap[i].id;
         point_pass_flag[neighbor_id] = 1;
