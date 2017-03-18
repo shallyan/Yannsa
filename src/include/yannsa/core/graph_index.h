@@ -54,6 +54,8 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
   public:
     GraphIndex(typename BaseClass::DatasetPtr& dataset_ptr) : BaseClass(dataset_ptr) {}
 
+    void Clear(); 
+
     void Build(const util::GraphIndexParameter& index_param, 
                util::BaseEncoderPtr<PointType>& encoder_ptr); 
 
@@ -79,14 +81,8 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     }
 
   private:
-    void InitPointIndex() {
-      IntIndex max_point_id = this->dataset_ptr_->size();
-      all_point_knn_graph_ = ContinuesPointKnnGraph(max_point_id, PointNeighbor(max_point_neighbor_num_));
-    }
-
-    void InitBucketIndex() {
-      bucket2key_point_ = BucketId2PointList(OriginBucketSize());
-    }
+    void Init(const util::GraphIndexParameter& index_param,
+              util::BaseEncoderPtr<PointType>& encoder_ptr); 
 
     inline const PointType& GetPoint(IntIndex point_id) {
       return (*this->dataset_ptr_)[point_id];
@@ -102,18 +98,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
     inline IntIndex AllBucketSize() {
       return bucket2key_point_.size();
-    }
-
-    void clear() {
-      // point
-      all_point_knn_graph_.clear();
-
-      // bucket
-      bucket_code2id_.clear();
-      bucket_id2code_.clear();
-      bucket2key_point_.clear();
-      merged_bucket_map_.clear();
-      splited_bucket_map_.clear();
     }
 
     void Encode2Buckets(BucketId2PointList& bucket2point_list); 
@@ -211,10 +195,24 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 };
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::Clear() {
+  this->have_built_ = false;
+  // point
+  all_point_knn_graph_.clear();
+
+  // bucket
+  bucket_code2id_.clear();
+  bucket_id2code_.clear();
+  bucket2key_point_.clear();
+  merged_bucket_map_.clear();
+  splited_bucket_map_.clear();
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::Init(
     const util::GraphIndexParameter& index_param,
     util::BaseEncoderPtr<PointType>& encoder_ptr) { 
-  util::Log("before build");
+
   encoder_ptr_ = encoder_ptr;
   point_neighbor_num_ = index_param.point_neighbor_num;
   max_point_neighbor_num_ = std::max(index_param.max_point_neighbor_num,
@@ -222,15 +220,26 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   search_point_neighbor_num_ = std::min(index_param.search_point_neighbor_num,
                                         point_neighbor_num_);
 
-  clear();
+  IntIndex max_point_id = this->dataset_ptr_->size();
+  all_point_knn_graph_ = ContinuesPointKnnGraph(max_point_id, PointNeighbor(max_point_neighbor_num_));
+}
 
-  InitPointIndex();
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
+    const util::GraphIndexParameter& index_param,
+    util::BaseEncoderPtr<PointType>& encoder_ptr) { 
 
-  // encode
+  util::Log("before build");
+
+  if (this->have_built_) {
+    throw IndexBuildError("Graph index has already been built!");
+  }
+
+  Init(index_param, encoder_ptr);
+
+  // encode and init bukcet
   BucketId2PointList bucket2point_list;
   Encode2Buckets(bucket2point_list);
-
-  InitBucketIndex();
 
   // construct bucket knn graph
   BucketKnnGraph bucket_knn_graph(OriginBucketSize(), BucketNeighbor(index_param.bucket_neighbor_num));
@@ -593,6 +602,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Encode2Buckets(
     IntIndex bucket_id = bucket_code2id_[point_code];
     bucket2point_list[bucket_id].push_back(point_id);
   }
+
+  bucket2key_point_ = BucketId2PointList(OriginBucketSize());
 }
 
 
@@ -866,7 +877,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
     std::vector<std::string>& search_result) {
 
   if (!this->have_built_) {
-    throw IndexNotBuildError("Graph index hasn't been built!");
+    throw IndexBuildError("Graph index hasn't been built!");
   }
 
   IntCode bucket_code = encoder_ptr_->Encode(query);

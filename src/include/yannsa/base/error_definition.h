@@ -21,9 +21,9 @@ class KeyNotExistError : public YannsaError {
     KeyNotExistError(const std::string& error_msg) : YannsaError(error_msg) {}
 };
 
-class IndexNotBuildError : public YannsaError {
+class IndexBuildError : public YannsaError {
   public:
-    IndexNotBuildError(const std::string& error_msg) : YannsaError(error_msg) {}
+    IndexBuildError(const std::string& error_msg) : YannsaError(error_msg) {}
 };
 
 } // namespace yannsa
