@@ -152,8 +152,10 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
     IntIndex GetNearestKeyPoint(IntIndex bucket_id, const PointType& point_vec);
 
-    void SortBucketPointsByInDegree(BucketId2PointList& bucket2point_list,
-                                    int key_point_num);
+    void SortBucketPointsByInDegree(BucketId2PointList& bucket2point_list);
+
+    void FindBucketKeyPoints(BucketId2PointList& bucket2point_list,
+                             int key_point_num);
 
     template <typename PointKnnGraphType>
     void GreedyFindKnnInGraph(const PointType& query, PointKnnGraphType& knn_graph,
@@ -256,15 +258,15 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   {
   clock_t s, e;
   s = clock();
-  SortBucketPointsByInDegree(bucket2point_list, index_param.bucket_key_point_num);
+  SortBucketPointsByInDegree(bucket2point_list);
+  FindBucketKeyPoints(bucket2point_list, index_param.bucket_key_point_num);
   e = clock();
   std::cout << "sort in degree: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
   }
 
-  // join bucket knn graph1 and graph
+  // join bucket knn graph graph
   LocalitySensitiveSearch(bucket2point_list, bucket_knn_graph);
 
-  /*
   {
   clock_t s, e;
   s = clock();
@@ -273,7 +275,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   std::cout << "refine: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
   }
 
-  */
   #pragma omp parallel for schedule(dynamic, 5)
   for (IntIndex cur_point_id = 0; cur_point_id < PointSize(); cur_point_id++) {
     all_point_knn_graph_[cur_point_id].resize(point_neighbor_num_);
@@ -561,7 +562,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSea
 
   clock_t s, e;
   s = clock();
-  // to_update_candidates will be clear by ConnectSplitedBuckets
+  // to_update_candidates will be cleared by ConnectSplitedBuckets
   // so here it needn't be cleare again
   ConnectAllBuckets2BucketList(bucket2point_list, bucket_knn_graph, to_update_candidates);
   e = clock();
@@ -763,15 +764,54 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildAllBucketsPoint
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::SortBucketPointsByInDegree(
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindBucketKeyPoints(
     BucketId2PointList& bucket2point_list, int key_point_num) {
 
-  // count points in degree
+  #pragma omp parallel for schedule(static)
+  for (IntIndex bucket_id = 0; bucket_id < bucket2point_list.size(); bucket_id++) {
+    IdList& point_list = bucket2point_list[bucket_id];
+    if (point_list.empty()) {
+      continue;
+    }
+
+    DynamicBitset point_pass_flag(PointSize(), 0);
+    for (IntIndex point_id : point_list) {
+      if (point_pass_flag[point_id]) {
+        continue;
+      }
+
+      // select current point
+      bucket2key_point_[bucket_id].push_back(point_id);
+
+      // find enough num key points
+      if (bucket2key_point_[bucket_id].size() > key_point_num) {
+        break;
+      }
+
+      point_pass_flag[point_id] = 1;
+
+      // pass current key point's neighbor (use max_point_neighbor_num_ for max margin)
+      PointNeighbor& neighbor_heap = all_point_knn_graph_[point_id];
+      size_t neighbor_effect_size = neighbor_heap.effect_size(max_point_neighbor_num_);
+      for (size_t i = 0; i < neighbor_effect_size; i++) {
+        IntIndex neighbor_id = neighbor_heap[i].id;
+        point_pass_flag[neighbor_id] = 1;
+      }
+    }
+  }
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::SortBucketPointsByInDegree(
+    BucketId2PointList& bucket2point_list) {
+
+  // count points in-degree in [0, point_neighbor_num_)
+  // which could represent local density
   std::vector<int> point_in_degree_count(PointSize(), 0);
   #pragma omp parallel for schedule(static)
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
     PointNeighbor& neighbor_heap = all_point_knn_graph_[point_id];
-    size_t effect_size = neighbor_heap.effect_size(search_point_neighbor_num_);
+    size_t effect_size = neighbor_heap.effect_size(point_neighbor_num_);
     for (size_t i = 0; i < effect_size; i++) {
       IntIndex neighbor_id = neighbor_heap[i].id;
       #pragma omp atomic
@@ -787,49 +827,14 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SortBucketPointsByIn
       continue;
     }
 
+    // sort bucket points by in-degree desc
     InDegreeHeap in_degree_heap(point_list.size());
     for (auto point_id : point_list) {
       in_degree_heap.insert_heap(PointDistancePair<IntIndex, int>(point_id, -point_in_degree_count[point_id]));
     }
     in_degree_heap.sort();
-    point_list.clear();
-    for (auto point_iter = in_degree_heap.begin(); 
-              point_iter != in_degree_heap.end(); point_iter++) {
-      point_list.push_back(point_iter->id);
-    }
-
-    DynamicBitset point_pass_flag(PointSize(), 0);
-    for (auto point_iter = in_degree_heap.begin(); 
-              point_iter != in_degree_heap.end(); point_iter++) {
-      if (point_pass_flag[point_iter->id]) {
-        continue;
-      }
-      point_pass_flag[point_iter->id] = 1;
-
-      // check whether current point's neighbor has been selected
-      bool is_selected = true;
-      PointNeighbor& neighbor_heap = all_point_knn_graph_[point_iter->id];
-      size_t effect_size = neighbor_heap.effect_size(search_point_neighbor_num_);
-      for (size_t i = 0; i < effect_size; i++) {
-        IntIndex neighbor_id = neighbor_heap[i].id;
-        if (point_pass_flag[neighbor_id]) {
-          is_selected = false;
-        }
-        else {
-          // pass current key point's neighbor
-          point_pass_flag[neighbor_id] = 1;
-        }
-      }
-
-      // select current point
-      if (is_selected) {
-        bucket2key_point_[bucket_id].push_back(point_iter->id);
-      }
-
-      // find enough num key points
-      if (bucket2key_point_[bucket_id].size() > key_point_num) {
-        break;
-      }
+    for (size_t i = 0; i < in_degree_heap.size(); i++) {
+      point_list[i] = in_degree_heap[i].id;
     }
   }
 }
