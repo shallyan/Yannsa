@@ -100,7 +100,8 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
       return bucket2key_point_.size();
     }
 
-    void Encode2Buckets(BucketId2PointList& bucket2point_list); 
+    void LocalitySensitiveHashing(BucketId2PointList& bucket2point_list,
+                                  IdList& point_id2bucket_id); 
 
     void SplitMergeBuckets(BucketId2PointList& bucket2point_list, 
                            BucketKnnGraph& bucket_knn_graph,
@@ -147,9 +148,11 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
                               DynamicBitset& visited_point_flag);
 
     void LocalitySensitiveSearch(BucketId2PointList& bucket2point_list, 
-                                 BucketKnnGraph& bucket_knn_graph);
+                                 BucketKnnGraph& bucket_knn_graph,
+                                 DynamicBitset& boundary_point_flag);
 
-    void GetBucket2ConnectBucketList(BucketKnnGraph& bucket_knn_graph, BucketId2BucketIdList& bucket2connect_list);
+    void GetBucket2ConnectBucketList(BucketKnnGraph& bucket_knn_graph, 
+                                     BucketId2BucketIdList& bucket2connect_list);
 
     void ConnectSplitedBuckets(BucketId2PointList& bucket2point_list,
                                ContinuesPointKnnGraph& to_update_candidates);
@@ -160,11 +163,12 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
     void ConnectAllBuckets2BucketList(BucketId2PointList& bucket2point_list,
                                       BucketKnnGraph& bucket_knn_graph,
-                                      ContinuesPointKnnGraph& to_update_candidates); 
+                                      ContinuesPointKnnGraph& to_update_candidates,
+                                      DynamicBitset& boundary_point_flag); 
 
     int UpdatePointKnn(IntIndex point1, IntIndex point2, DistanceType dist);
 
-    void RefineByExpansion(int iteration_num); 
+    void LocalitySensitiveRefine(IdList& point_id2bucket_id, DynamicBitset& boundary_point_flag, int iteration_num); 
 
     void GetPointReverseNeighbors(PointId2PointList& point2point_list, 
                                   PointId2PointList& point2reverse_neighbors); 
@@ -233,7 +237,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
 
   // encode and init bukcet
   BucketId2PointList bucket2point_list;
-  Encode2Buckets(bucket2point_list);
+  IdList point_id2bucket_id;
+  LocalitySensitiveHashing(bucket2point_list, point_id2bucket_id);
 
   // construct bucket knn graph
   BucketKnnGraph bucket_knn_graph(OriginBucketSize(), BucketNeighbor(index_param.bucket_neighbor_num));
@@ -268,19 +273,15 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   }
 
   // join bucket knn graph graph
-  LocalitySensitiveSearch(bucket2point_list, bucket_knn_graph);
+  DynamicBitset boundary_point_flag(PointSize(), 0);
+  LocalitySensitiveSearch(bucket2point_list, bucket_knn_graph, boundary_point_flag);
 
   {
   clock_t s, e;
   s = clock();
-  RefineByExpansion(index_param.refine_iter_num);
+  LocalitySensitiveRefine(point_id2bucket_id, boundary_point_flag, index_param.refine_iter_num);
   e = clock();
   std::cout << "refine: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
-  }
-
-  #pragma omp parallel for schedule(dynamic, 5)
-  for (IntIndex cur_point_id = 0; cur_point_id < PointSize(); cur_point_id++) {
-    all_point_knn_graph_[cur_point_id].resize(point_neighbor_num_);
   }
 
   // build
@@ -304,10 +305,35 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::GetPointReverseNeigh
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
-    int iteration_num) {
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveRefine(
+    IdList& point_id2bucket_id, DynamicBitset& boundary_point_flag, int iteration_num) {
 
   int max_point_id = PointSize();
+
+  // find corner points from boundary points
+  #pragma omp parallel for schedule(static)
+  for (int point_id = 0; point_id < max_point_id; point_id++) {
+    PointNeighbor& point_neighbor = all_point_knn_graph_[point_id];
+
+    if (!boundary_point_flag[point_id]) {
+      point_neighbor.resize(point_neighbor_num_);
+      continue;
+    }
+
+    // corner point neighbors come from more than 2 buckets
+    size_t effect_size = point_neighbor.effect_size(point_neighbor_num_);
+    IdSet neighbor_bucket_set;
+    for (size_t i = 0; i < effect_size; i++) {
+      neighbor_bucket_set.insert(point_id2bucket_id[point_neighbor[i].id]);
+    }
+
+    // only keep corner points
+    if (neighbor_bucket_set.size() <= 2) {
+      boundary_point_flag[point_id] = 0;
+      point_neighbor.resize(point_neighbor_num_);
+    }
+  }
+
   PointId2PointList point2old(max_point_id), point2new(max_point_id),
                     point2old_reverse(max_point_id), point2new_reverse(max_point_id);
   for (int loop = 0; loop < iteration_num; loop++) {
@@ -338,6 +364,12 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineByExpansion(
     int update_count = 0;
     #pragma omp parallel for schedule(dynamic, 20) default(shared) reduction(+:update_count)
     for (IntIndex cur_point_id = 0; cur_point_id < max_point_id; cur_point_id++) {
+      /*
+      if (!boundary_point_flag[cur_point_id]) {
+        continue;
+      }
+      */
+
       IdList& new_list = point2new[cur_point_id];
       IdList& new_reverse_list = point2new_reverse[cur_point_id];
       if (new_list.size() == 0 && new_reverse_list.size() == 0) {
@@ -386,8 +418,10 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointKnn(
   }
 
   int update_count = 0;
-  update_count += all_point_knn_graph_[point1].parallel_insert_array(PointDistancePairItem(point2, dist, true));
-  update_count += all_point_knn_graph_[point2].parallel_insert_array(PointDistancePairItem(point1, dist, true));
+  int update_pos = all_point_knn_graph_[point1].parallel_insert_array(PointDistancePairItem(point2, dist, true));
+  update_count += update_pos < point_neighbor_num_ ? 1 : 0;
+  update_pos = all_point_knn_graph_[point2].parallel_insert_array(PointDistancePairItem(point1, dist, true));
+  update_count += update_pos < point_neighbor_num_ ? 1 : 0;
 
   return update_count;
 }
@@ -512,7 +546,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::GetBucket2ConnectBuc
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectAllBuckets2BucketList(
     BucketId2PointList& bucket2point_list, BucketKnnGraph& bucket_knn_graph,
-    ContinuesPointKnnGraph& to_update_candidates) {
+    ContinuesPointKnnGraph& to_update_candidates,
+    DynamicBitset& boundary_point_flag) {
 
   BucketId2BucketIdList bucket2connect_list(OriginBucketSize(), IdList());
   GetBucket2ConnectBucketList(bucket_knn_graph, bucket2connect_list);
@@ -529,21 +564,27 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectAllBuckets2Bu
 
   #pragma omp parallel for schedule(dynamic, 5)
   for (int point_id = 0; point_id < to_update_candidates.size(); point_id++) {
-    int update_count = 0;
     PointNeighbor& candidate_heap = to_update_candidates[point_id];
+    if (candidate_heap.size() == 0) {
+      continue;
+    }
+
+    int update_count = 0;
     for (auto iter = candidate_heap.begin(); iter != candidate_heap.end(); iter++) {
       update_count += UpdatePointKnn(point_id, iter->id, iter->distance);
     }
-    //if (update_count <= 10) {
-     // count += 1;
-      //candidate_heap.resize(point_neighbor_num_);
-    //}
+
+    // only one side updated points are selected as boundary point
+    if (update_count > 0) {
+      boundary_point_flag[point_id] = 1;
+    }
   }
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSearch(
-    BucketId2PointList& bucket2point_list, BucketKnnGraph& bucket_knn_graph) {
+    BucketId2PointList& bucket2point_list, BucketKnnGraph& bucket_knn_graph,
+    DynamicBitset& boundary_point_flag) {
 
   ContinuesPointKnnGraph to_update_candidates(PointSize(), PointNeighbor(max_point_neighbor_num_));
 
@@ -553,14 +594,14 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSea
   s = clock();
   // to_update_candidates will be cleared by ConnectSplitedBuckets
   // so here it needn't be cleare again
-  ConnectAllBuckets2BucketList(bucket2point_list, bucket_knn_graph, to_update_candidates);
+  ConnectAllBuckets2BucketList(bucket2point_list, bucket_knn_graph, to_update_candidates, boundary_point_flag);
   e = clock();
   std::cout << "connect neighbor update: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::Encode2Buckets(
-    BucketId2PointList& bucket2point_list) { 
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveHashing(
+    BucketId2PointList& bucket2point_list, IdList& point_id2bucket_id) {
   // encode
   std::vector<IntCode> point_code_list(PointSize());
   #pragma omp parallel for schedule(static)
@@ -581,11 +622,11 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Encode2Buckets(
 
     IntIndex bucket_id = bucket_code2id_[point_code];
     bucket2point_list[bucket_id].push_back(point_id);
+    point_id2bucket_id.push_back(bucket_id);
   }
 
   bucket2key_point_ = BucketId2PointList(OriginBucketSize());
 }
-
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::SplitMergeBuckets(
