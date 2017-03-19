@@ -276,6 +276,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   DynamicBitset boundary_point_flag(PointSize(), 0);
   LocalitySensitiveSearch(bucket2point_list, bucket_knn_graph, boundary_point_flag);
 
+  util::Log("before refine");
   {
   clock_t s, e;
   s = clock();
@@ -364,22 +365,24 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveRef
     int update_count = 0;
     #pragma omp parallel for schedule(dynamic, 20) default(shared) reduction(+:update_count)
     for (IntIndex cur_point_id = 0; cur_point_id < max_point_id; cur_point_id++) {
-      /*
-      if (!boundary_point_flag[cur_point_id]) {
-        continue;
-      }
-      */
-
       IdList& new_list = point2new[cur_point_id];
       IdList& new_reverse_list = point2new_reverse[cur_point_id];
       if (new_list.size() == 0 && new_reverse_list.size() == 0) {
         continue;
+      }
+      if (new_reverse_list.size() > 100) {
+        std::random_shuffle(new_reverse_list.begin(), new_reverse_list.end());
+        new_reverse_list.resize(100);
       }
       new_list.insert(new_list.end(), new_reverse_list.begin(), new_reverse_list.end());
 
       IdList& old_list = point2old[cur_point_id];
       IdList& old_reverse_list = point2old_reverse[cur_point_id];
       old_list.insert(old_list.end(), old_reverse_list.begin(), old_reverse_list.end());
+      if (old_reverse_list.size() > 100) {
+        std::random_shuffle(old_reverse_list.begin(), old_reverse_list.end());
+        old_reverse_list.resize(100);
+      }
 
       // unique
       IdSet old_set(old_list.begin(), old_list.end());
@@ -390,10 +393,12 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveRef
       // update new 
       for (IntIndex u1 : uniq_new_list) {
         const PointType& point_vec = GetPoint(u1);
-        for (IntIndex u2 : uniq_new_list) {
-          if (u1 < u2) {
-            DistanceType dist = distance_func_(point_vec, GetPoint(u2));
-            update_count += UpdatePointKnn(u1, u2, dist);
+        if (boundary_point_flag[cur_point_id]) {
+          for (IntIndex u2 : uniq_new_list) {
+            if (u1 < u2) {
+              DistanceType dist = distance_func_(point_vec, GetPoint(u2));
+              update_count += UpdatePointKnn(u1, u2, dist);
+            }
           }
         }
         for (IntIndex u2 : uniq_old_list) {
