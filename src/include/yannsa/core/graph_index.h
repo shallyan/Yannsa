@@ -154,10 +154,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     void ConnectSplitedBuckets(BucketId2PointList& bucket2point_list,
                                ContinuesPointKnnGraph& to_update_candidates);
 
-    void ConnectTwoBucketPoints(BucketId2PointList& bucket2point_list, 
-                                IntIndex bucket_id, IntIndex neighbor_bucket_id,
-                                ContinuesPointKnnGraph& to_update_candidates);
-
     void ConnectBucket2BucketList(BucketId2PointList& bucket2point_list, 
                                   IntIndex bucket_id, IdList& neighbor_bucket_list,
                                   ContinuesPointKnnGraph& to_update_candidates);
@@ -167,8 +163,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
                                       ContinuesPointKnnGraph& to_update_candidates); 
 
     int UpdatePointKnn(IntIndex point1, IntIndex point2, DistanceType dist);
-
-    void Sample(IdList& point_list, IdList& sampled_point_list, int sample_num); 
 
     void RefineByExpansion(int iteration_num); 
 
@@ -307,20 +301,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::GetPointReverseNeigh
     }
   }
   // won't repeat
-}
-
-template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::Sample(
-    IdList& point_list, IdList& sampled_point_list, int sample_num) {
-  util::IntRandomGenerator rg(0, sample_num-1);
-  for (auto point_id : point_list) {
-    if (sampled_point_list.size() < sample_num) {
-      sampled_point_list.push_back(point_id);
-    }
-    else {
-      sampled_point_list[rg.Random()] = point_id;
-    }
-  }
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
