@@ -8,7 +8,9 @@
 #include "yannsa/util/base_encoder.h"
 #include "yannsa/util/point_pair.h"
 #include "yannsa/util/logging.h"
+#include "yannsa/util/lock.h"
 #include "yannsa/util/random_generator.h"
+#include "yannsa/util/bi_neighbor.h"
 #include "yannsa/core/base_index.h"
 #include <omp.h>
 #include <vector>
@@ -46,7 +48,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     typedef std::vector<IdList> BucketId2BucketIdList;
 
     // point
-    typedef std::vector<IdList> PointId2PointList;
     typedef PointDistancePair<IntIndex, DistanceType> PointDistancePairItem; 
     typedef util::Heap<PointDistancePairItem> PointNeighbor;
     typedef std::vector<PointNeighbor> ContinuesPointKnnGraph;
@@ -170,8 +171,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
     void LocalitySensitiveRefine(IdList& point_id2bucket_id, DynamicBitset& boundary_point_flag, int iteration_num); 
 
-    void GetPointReverseNeighbors(PointId2PointList& point2point_list, 
-                                  PointId2PointList& point2reverse_neighbors); 
   private:
     int point_neighbor_num_;
     int max_point_neighbor_num_;
@@ -292,20 +291,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::GetPointReverseNeighbors(
-    PointId2PointList& point2point_list, 
-    PointId2PointList& point2reverse_neighbors) {
-
-  for (IntIndex point_id = 0; point_id < point2point_list.size(); point_id++) {
-    IdList& neighbor_point_list = point2point_list[point_id];
-    for (auto neighbor_point_id : neighbor_point_list) {
-      point2reverse_neighbors[neighbor_point_id].push_back(point_id);
-    }
-  }
-  // won't repeat
-}
-
-template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveRefine(
     IdList& point_id2bucket_id, DynamicBitset& boundary_point_flag, int iteration_num) {
 
@@ -335,73 +320,84 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveRef
     }
   }
 
-  PointId2PointList point2old(max_point_id), point2new(max_point_id),
-                    point2old_reverse(max_point_id), point2new_reverse(max_point_id);
+  typedef util::BiNeighbor<DistanceType> BiNeighbor;
+  std::vector<BiNeighbor> point2bi_neighbor(max_point_id);
   for (int loop = 0; loop < iteration_num; loop++) {
+    // reset
+    #pragma omp parallel for schedule(static)
+    for (IntIndex point_id = 0; point_id < max_point_id; point_id++) {
+      BiNeighbor& point_bi_neighbor = point2bi_neighbor[point_id];
+      point_bi_neighbor.reset(all_point_knn_graph_[point_id].max_array().distance);
+    }
+
     // init
     #pragma omp parallel for schedule(static)
-    for (IntIndex cur_point_id = 0; cur_point_id < max_point_id; cur_point_id++) {
-      point2old[cur_point_id].clear();
-      point2old_reverse[cur_point_id].clear();
-      point2new[cur_point_id].clear();
-      point2new_reverse[cur_point_id].clear();
+    for (IntIndex point_id = 0; point_id < max_point_id; point_id++) {
+      BiNeighbor& point_bi_neighbor = point2bi_neighbor[point_id];
+      PointNeighbor& point_neighbor = all_point_knn_graph_[point_id];
 
-      PointNeighbor& neighbor_heap = all_point_knn_graph_[cur_point_id];
-      for (auto iter = neighbor_heap.begin(); iter != neighbor_heap.end(); iter++) {
-        if (iter->flag) {
-          point2new[cur_point_id].push_back(iter->id);
-          iter->flag = false;
+      for (auto iter = point_neighbor.begin(); iter != point_neighbor.end(); iter++) {
+        BiNeighbor& neighbor_bi_neighbor = point2bi_neighbor[iter->id];
+        // neighbor
+        point_bi_neighbor.insert(iter->id, iter->flag);
+        // reverse neighbor, avoid repeat element
+        if (iter->distance > neighbor_bi_neighbor.radius) {
+          neighbor_bi_neighbor.parallel_insert_reverse(point_id, iter->flag);
         }
-        else {
-          point2old[cur_point_id].push_back(iter->id);
-        }
+        iter->flag = false;
       }
     }
 
-    // reverse
-    GetPointReverseNeighbors(point2old, point2old_reverse);
-    GetPointReverseNeighbors(point2new, point2new_reverse);
-
+    // update
     int update_count = 0;
     #pragma omp parallel for schedule(dynamic, 20) default(shared) reduction(+:update_count)
-    for (IntIndex cur_point_id = 0; cur_point_id < max_point_id; cur_point_id++) {
-      IdList& new_list = point2new[cur_point_id];
-      IdList& new_reverse_list = point2new_reverse[cur_point_id];
-      if (new_list.size() == 0 && new_reverse_list.size() == 0) {
+    for (IntIndex point_id = 0; point_id < max_point_id; point_id++) {
+      bool is_corner_point = boundary_point_flag[point_id];
+      BiNeighbor& point_bi_neighbor = point2bi_neighbor[point_id];
+
+      IdList& new_list = point_bi_neighbor.new_list;
+      IdList& reverse_new_list = point_bi_neighbor.reverse_new_list;
+      if (new_list.size() == 0 && reverse_new_list.size() == 0) {
         continue;
       }
-      if (new_reverse_list.size() > 100) {
-        std::random_shuffle(new_reverse_list.begin(), new_reverse_list.end());
-        new_reverse_list.resize(100);
-      }
-      new_list.insert(new_list.end(), new_reverse_list.begin(), new_reverse_list.end());
 
-      IdList& old_list = point2old[cur_point_id];
-      IdList& old_reverse_list = point2old_reverse[cur_point_id];
-      old_list.insert(old_list.end(), old_reverse_list.begin(), old_reverse_list.end());
-      if (old_reverse_list.size() > 100) {
-        std::random_shuffle(old_reverse_list.begin(), old_reverse_list.end());
-        old_reverse_list.resize(100);
+      /*
+      if (!is_corner_point) {
+        if (reverse_new_list.size() > 10) {
+          std::random_shuffle(reverse_new_list.begin(), reverse_new_list.end());
+          reverse_new_list.resize(10);
+        }
       }
+      */
+      new_list.insert(new_list.end(), reverse_new_list.begin(), reverse_new_list.end());
 
-      // unique
-      IdSet old_set(old_list.begin(), old_list.end());
-      IdSet new_set(new_list.begin(), new_list.end());
-      IdList uniq_old_list(old_set.begin(), old_set.end());
-      IdList uniq_new_list(new_set.begin(), new_set.end());
+      IdList& old_list = point_bi_neighbor.old_list;
+      IdList& reverse_old_list = point_bi_neighbor.reverse_old_list;
+      /*
+      if (!is_corner_point) {
+        if (reverse_old_list.size() > 10) {
+          std::random_shuffle(reverse_old_list.begin(), reverse_old_list.end());
+          reverse_old_list.resize(10);
+        }
+      }
+      */
+      old_list.insert(old_list.end(), reverse_old_list.begin(), reverse_old_list.end());
 
       // update new 
-      for (IntIndex u1 : uniq_new_list) {
+      for (size_t i = 0; i < new_list.size(); i++) {
+        IntIndex u1 = new_list[i];
         const PointType& point_vec = GetPoint(u1);
-        if (boundary_point_flag[cur_point_id]) {
-          for (IntIndex u2 : uniq_new_list) {
-            if (u1 < u2) {
-              DistanceType dist = distance_func_(point_vec, GetPoint(u2));
-              update_count += UpdatePointKnn(u1, u2, dist);
-            }
+
+        if (is_corner_point) {
+          for (size_t j = i+1; j < new_list.size(); j++) {
+            IntIndex u2 = new_list[j];
+            DistanceType dist = distance_func_(point_vec, GetPoint(u2));
+            update_count += UpdatePointKnn(u1, u2, dist);
           }
         }
-        for (IntIndex u2 : uniq_old_list) {
+
+        for (size_t j = 0; j < old_list.size(); j++) {
+          IntIndex u2 = old_list[j];
           DistanceType dist = distance_func_(point_vec, GetPoint(u2));
           update_count += UpdatePointKnn(u1, u2, dist);
         }

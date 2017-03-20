@@ -40,6 +40,15 @@ class Heap {
       return heap_[i];
     }
 
+    // assume at lease one element in array
+    inline const PointType& min_array() {
+      return heap_[0];
+    }
+
+    inline const PointType& max_array() {
+      return heap_[size()-1];
+    }
+
     inline iterator begin() {
       return heap_.begin();
     }
@@ -53,7 +62,7 @@ class Heap {
     }
 
     size_t parallel_insert_array(const PointType& new_point) {
-      ScopedLock lock = ScopedLock(lock_);
+      ScopedLock lock(lock_);
       return insert_array(new_point);
     }
 
@@ -111,18 +120,6 @@ class Heap {
     void pop() {
       std::pop_heap(heap_.begin(), heap_.end());
       heap_.pop_back();
-    }
-
-    PointType GetMinValue() {
-      return *std::min_element(heap_.begin(), heap_.end());
-    }
-
-    PointType GetMaxValue() {
-      return heap_.front(); 
-    }
-
-    PointType& front() {
-      return heap_.front(); 
     }
 
   private:
