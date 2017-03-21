@@ -113,12 +113,11 @@ int main(int argc, char** argv) {
   util::GraphIndexParameter param;
   param.point_neighbor_num = atoi(argv[1]);
   param.max_point_neighbor_num = atoi(argv[2]);
-  param.bucket_key_point_num = atoi(argv[3]);
-  param.bucket_neighbor_num = atoi(argv[4]);
-  param.min_bucket_size = atoi(argv[5]);
-  param.max_bucket_size = atoi(argv[6]);
-  param.refine_iter_num = atoi(argv[7]);
-  param.search_point_neighbor_num = atoi(argv[8]);
+  param.bucket_neighbor_num = atoi(argv[3]);
+  param.min_bucket_size = atoi(argv[4]);
+  param.max_bucket_size = atoi(argv[5]);
+  param.refine_iter_num = atoi(argv[6]);
+  param.search_point_neighbor_num = atoi(argv[7]);
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   int point_dim = CreateDataset("data/glove_10w", dataset_ptr);

@@ -9,7 +9,6 @@ struct GraphIndexParameter {
   int search_point_neighbor_num;
   int max_point_neighbor_num;
   int bucket_neighbor_num;
-  int bucket_key_point_num;
   int min_bucket_size;
   int max_bucket_size;
   int refine_iter_num;
