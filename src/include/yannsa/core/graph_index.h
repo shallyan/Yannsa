@@ -336,15 +336,16 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveRef
   std::vector<BiNeighbor> point2bi_neighbor(max_point_id);
   for (int loop = 0; loop < iteration_num; loop++) {
     // reset
-    //#pragma omp parallel for schedule(static)
+    #pragma omp parallel for schedule(static)
     for (IntIndex point_id = 0; point_id < max_point_id; point_id++) {
       BiNeighbor& point_bi_neighbor = point2bi_neighbor[point_id];
       PointNeighbor& point_neighbor = all_point_knn_graph_[point_id];
 
+      // if not updated, keep neighbor num
       size_t new_effect_size = point_neighbor.effect_size(point_neighbor_num_);
 
-      // new effect_size
-      if (updated_point_flag[point_id]) {
+      // else resize to have search_point_neighbor_num new points
+      if (loop > 0 && updated_point_flag[point_id]) {
         if (point_bi_neighbor.effect_size < point_neighbor.size()) {
           int new_point_count = 0;
           for (new_effect_size = 0; new_effect_size < point_neighbor.size(); new_effect_size++) {
@@ -398,9 +399,12 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveRef
         continue;
       }
 
-      size_t sample_num = point_neighbor_num_;
-      if (updated_point_flag[point_id] && is_corner_point) {
-        sample_num = 100;
+      size_t sample_num = search_point_neighbor_num_;
+      if (is_corner_point) {
+        sample_num = search_point_neighbor_num_ * search_point_neighbor_num_;
+      }
+      else if (!updated_point_flag[point_id]) {
+        sample_num = search_point_neighbor_num_;
       }
 
       if (reverse_new_list.size() > sample_num) {
