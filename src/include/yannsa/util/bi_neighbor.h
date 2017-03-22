@@ -15,13 +15,15 @@ struct BiNeighbor {
   std::vector<IntIndex> reverse_old_list;
   std::vector<IntIndex> reverse_new_list;
   DistanceType radius;
+  size_t effect_size;
   Mutex lock;
 
-  void reset(DistanceType r) {
+  void reset(size_t s, DistanceType r) {
     old_list.clear();
     new_list.clear();
     reverse_new_list.clear();
     reverse_old_list.clear();
+    effect_size = s;
     radius = r;
   }
 

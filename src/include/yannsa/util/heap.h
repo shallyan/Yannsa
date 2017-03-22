@@ -36,7 +36,7 @@ class Heap {
       heap_.resize(max_size_);
     }
 
-    inline const PointType& operator[](int i) {
+    inline PointType& operator[](int i) {
       return heap_[i];
     }
 
