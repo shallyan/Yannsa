@@ -1,2 +1,0 @@
-rm similar_word_precision
-make similar_word_precision

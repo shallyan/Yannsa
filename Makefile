@@ -4,6 +4,13 @@ CXX_FLAGS=-std=c++11 -O3 -march=native -fopenmp
 YANNSA_INC=src/include/
 THIRD_PARTY_INC=third_party/
 
+# example
+EXAMPLE_FLAGS=$(CXX_FLAGS)
+EXAMPLE_ROOT=example
+
+knn_graph_test : $(EXAMPLE_ROOT)/knn_graph_test.cc
+	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
+
 # test
 GTEST_PATH=/usr/local
 GTEST_LIB=$(GTEST_PATH)/lib/
@@ -26,21 +33,3 @@ $(UNIT_TEST_OBJ_ROOT)/%.o: $(UNIT_TEST_ROOT)/%.cc
 $(UNIT_TEST_TARGET): $(UNIT_TEST_OBJ) 
 	$(CXX) $(UNIT_TEST_FLAGS) -o $@ $^ $(UNIT_TEST_LD_FLAGS)
 
-# example
-EXAMPLE_FLAGS=$(CXX_FLAGS)
-EXAMPLE_ROOT=example
-
-similar_word_knn_graph: $(EXAMPLE_ROOT)/similar_word_knn_graph.cc
-	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
-
-similar_word_knn_graph_test: $(EXAMPLE_ROOT)/similar_word_knn_graph_test.cc
-	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
-
-similar_word_precision: $(EXAMPLE_ROOT)/similar_word_precision.cc
-	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
-
-similar_word_search: $(EXAMPLE_ROOT)/similar_word_search.cc
-	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
-
-similar_word_brute_force : $(EXAMPLE_ROOT)/similar_word_brute_force.cc
-	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^

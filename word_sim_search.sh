@@ -1,2 +1,0 @@
-rm similar_word_search
-make similar_word_search

@@ -1,2 +1,0 @@
-rm similar_word_knn_graph_test
-make similar_word_knn_graph_test
