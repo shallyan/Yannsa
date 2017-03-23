@@ -145,7 +145,8 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
     void ConnectBucket2BucketList(BucketId2PointList& bucket2point_list,
                                   IntIndex bucket_id, IdList& neighbor_bucket_list,
-                                  ContinuesPointKnnGraph& to_update_candidates);
+                                  ContinuesPointKnnGraph& to_update_candidates,
+                                  bool is_full_locality=false);
 
     void ConnectAllBuckets2BucketList(BucketId2PointList& bucket2point_list,
                                       BucketKnnGraph& bucket_knn_graph,
@@ -160,6 +161,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     int point_neighbor_num_;
     int max_point_neighbor_num_;
     int search_point_neighbor_num_;
+    int search_start_point_num_;
 
     ContinuesPointKnnGraph all_point_knn_graph_;
 
@@ -201,6 +203,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Init(
                                      point_neighbor_num_);
   search_point_neighbor_num_ = std::min(index_param.search_point_neighbor_num,
                                         point_neighbor_num_);
+  search_start_point_num_ = index_param.search_start_point_num;
 
   IntIndex max_point_id = this->dataset_ptr_->size();
   all_point_knn_graph_ = ContinuesPointKnnGraph(max_point_id, PointNeighbor(max_point_neighbor_num_));
@@ -478,7 +481,8 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucket2BucketList(
     BucketId2PointList& bucket2point_list,
     IntIndex bucket_id, IdList& neighbor_bucket_list,
-    ContinuesPointKnnGraph& to_update_candidates) {
+    ContinuesPointKnnGraph& to_update_candidates,
+    bool is_full_locality) {
 
   const IdList& bucket_point_list = bucket2point_list[bucket_id];
   // connect bucket_id to neighbor_bucket_list
@@ -492,19 +496,38 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucket2Bucket
     
     const PointType& point_vec = GetPoint(point_id);
     DynamicBitset visited_point_flag(PointSize(), 0);
-    // point search from key point in every bucket
-    for (IntIndex neighbor_bucket_id : neighbor_bucket_list) {
-      IdList start_point_list;
-      GetNearestKeyPoint(neighbor_bucket_id, search_point_neighbor_num_, 
-                         point_vec, start_point_list);
-      for (IntIndex start_point_id : start_point_list) {
-        GreedyFindKnnInGraph(point_vec, all_point_knn_graph_, start_point_id,
-                             point_update_neighbor, visited_point_flag);
+
+    IdList start_point_list;
+    // check whether neighor has been updated
+    PointNeighbor& point_neighbor = all_point_knn_graph_[point_id];
+    size_t point_neighbor_num = point_neighbor.effect_size(point_neighbor_num_);
+    if (is_full_locality) {
+      for (size_t i = 0; i < point_neighbor_num; i++) {
+        IntIndex neighbor_point_id = point_neighbor[i].id;
+        PointNeighbor& neighbor_point_update_neighbor = to_update_candidates[neighbor_point_id];
+        if (neighbor_point_update_neighbor.size() > 0) {
+          size_t search_num = neighbor_point_update_neighbor.effect_size(search_start_point_num_);
+          for (size_t j = 0; j < search_num; j++) {
+            start_point_list.push_back(neighbor_point_update_neighbor[j].id);
+          }
+          break;
+        }
       }
     }
 
-    PointNeighbor& point_neighbor = all_point_knn_graph_[point_id];
-    size_t point_neighbor_num = point_neighbor.effect_size(point_neighbor_num_);
+    // point search from key point in every bucket
+    if (start_point_list.empty()) {
+      for (IntIndex neighbor_bucket_id : neighbor_bucket_list) {
+        GetNearestKeyPoint(neighbor_bucket_id, search_start_point_num_,
+                           point_vec, start_point_list);
+      }
+    }
+
+    for (IntIndex start_point_id : start_point_list) {
+      GreedyFindKnnInGraph(point_vec, all_point_knn_graph_, start_point_id,
+                           point_update_neighbor, visited_point_flag);
+    }
+
     // neighbors search from current point's update candidates
     for (size_t i = 0; i < point_neighbor_num; i++) {
       IntIndex neighbor_point_id = point_neighbor[i].id;
@@ -517,7 +540,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucket2Bucket
 
       const PointType& neighbor_point_vec = GetPoint(neighbor_point_id);
       visited_point_flag.assign(PointSize(), 0);
-      size_t effect_size = point_update_neighbor.effect_size(search_point_neighbor_num_);
+      size_t effect_size = point_update_neighbor.effect_size(search_start_point_num_);
       for (size_t j = 0; j < effect_size; j++) {
         IntIndex start_point_id = point_update_neighbor[j].id;
         GreedyFindKnnInGraph(neighbor_point_vec, all_point_knn_graph_,
@@ -549,7 +572,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectSplitedBucket
   for (size_t pair_id = 0; pair_id < bucket_connect_pair_list.size(); pair_id++) {
     IntIndex bucket_id = bucket_connect_pair_list[pair_id].first;
     IdList& to_connect_list = bucket_connect_pair_list[pair_id].second;
-    ConnectBucket2BucketList(bucket2point_list, bucket_id, to_connect_list, to_update_candidates);
+    ConnectBucket2BucketList(bucket2point_list, bucket_id, to_connect_list, to_update_candidates, false);
   }
 
   #pragma omp parallel for schedule(dynamic, 20)
@@ -610,7 +633,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectAllBuckets2Bu
       continue;
     }
 
-    ConnectBucket2BucketList(bucket2point_list, bucket_id, to_connect_list, to_update_candidates);
+    ConnectBucket2BucketList(bucket2point_list, bucket_id, to_connect_list, to_update_candidates, false);
   }
 
   #pragma omp parallel for schedule(dynamic, 5)
@@ -933,6 +956,10 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::GetNearestKeyPoint(
     IntIndex bucket_id, int k, const PointType& point_vec, IdList& nearest_list) {
 
   const IdList& key_point_list = bucket2key_point_[bucket_id];
+  if (key_point_list.size() <= k) {
+    nearest_list.insert(nearest_list.end(), key_point_list.begin(), key_point_list.end());
+    return;
+  }
 
   PointNeighbor k_heap(k);
   for (auto key_point_id : key_point_list) {

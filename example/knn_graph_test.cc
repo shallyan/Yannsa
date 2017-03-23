@@ -87,7 +87,8 @@ int main(int argc, char** argv) {
   if (argc < 11) {
     cout << "binary -data_path -graph_path -hash_length -point_neighbor_num "
          << "-max_point_neighbor_num -bucket_neighbor_num -min_bucket_size "
-         << "-max_bucket_size -refine_iter_num -search_point_neighbor_num"
+         << "-max_bucket_size -refine_iter_num -search_point_neighbor_num "
+         << "-search_start_point_num"
          << endl;
     return 0;
   }
@@ -104,6 +105,7 @@ int main(int argc, char** argv) {
   param.max_bucket_size = atoi(argv[8]);
   param.refine_iter_num = atoi(argv[9]);
   param.search_point_neighbor_num = atoi(argv[10]);
+  param.search_start_point_num = atoi(argv[11]);
    
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
