@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <ctime>
 #include <iostream>
+#include <fstream>
 
 namespace yannsa {
 namespace core {
@@ -64,22 +65,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
                    int k, 
                    std::vector<std::string>& search_result); 
 
-    // for test
-    void GraphKnn(IntIndex query_id, 
-                  int k, 
-                  std::vector<std::string>& search_result) {
-      search_result.clear();
-
-      // copy to not change heap
-      auto& neighbor_heap = all_point_knn_graph_[query_id];
-      auto iter = neighbor_heap.begin();
-      for (; iter != neighbor_heap.end(); iter++) {
-        search_result.push_back(this->dataset_ptr_->GetKeyById(iter->id));
-        if (search_result.size() >= k) {
-          break;
-        }
-      }
-    }
+    void Save(const std::string file_path);
 
   private:
     void Init(const util::GraphIndexParameter& index_param,
@@ -218,6 +204,23 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Init(
 
   IntIndex max_point_id = this->dataset_ptr_->size();
   all_point_knn_graph_ = ContinuesPointKnnGraph(max_point_id, PointNeighbor(max_point_neighbor_num_));
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::Save(
+    const std::string file_path) {
+
+  std::ofstream save_file(file_path);
+  for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
+    save_file << this->dataset_ptr_->GetKeyById(point_id) << " ";
+    PointNeighbor& point_neighbor = all_point_knn_graph_[point_id];
+    size_t effect_size = point_neighbor.effect_size(point_neighbor_num_);
+    for (size_t i = 0; i < effect_size; i++) {
+      save_file << this->dataset_ptr_->GetKeyById(point_neighbor[i].id) << " "; 
+    }
+    save_file << std::endl;
+  }
+  save_file.close();
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
