@@ -98,9 +98,23 @@ TEST(HeapTest, SortedArray) {
   ASSERT_EQ(h[0], 2);
   ASSERT_EQ(h[1], 3);
   ASSERT_EQ(h[2], 4);
-  h.insert_array(1);
+
+  h.remax_size(4);
   ASSERT_EQ(h.size(), 3);
+
+  h.insert_array(5);
+  ASSERT_EQ(h.size(), 4);
+  ASSERT_EQ(h[0], 2);
+  ASSERT_EQ(h[1], 3);
+  ASSERT_EQ(h[2], 4);
+  ASSERT_EQ(h[3], 5);
+
+  h.remax_size(5);
+  h.insert_array(1);
+  ASSERT_EQ(h.size(), 5);
   ASSERT_EQ(h[0], 1);
   ASSERT_EQ(h[1], 2);
   ASSERT_EQ(h[2], 3);
+  ASSERT_EQ(h[3], 4);
+  ASSERT_EQ(h[4], 5);
 }

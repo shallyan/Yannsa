@@ -4,6 +4,7 @@
 #include <vector>
 #include <algorithm>
 #include "yannsa/util/lock.h" 
+#include <iostream>
 
 namespace yannsa {
 namespace util {
@@ -31,9 +32,12 @@ class Heap {
       return std::min(size(), used_size);
     }
 
-    inline void resize(size_t new_size) {
-      max_size_ = std::min(new_size, size());
-      heap_.resize(max_size_);
+    inline void remax_size(size_t new_size) {
+      size_t old_size = max_size_;
+      max_size_ = std::max(new_size, old_size); 
+      if (max_size_ > old_size) {
+        heap_.reserve(max_size_);
+      }
     }
 
     inline PointType& operator[](int i) {
@@ -122,7 +126,7 @@ class Heap {
       heap_.pop_back();
     }
 
-  private:
+  //private:
     std::vector<PointType> heap_;
     size_t max_size_;
     Mutex lock_;
