@@ -86,6 +86,10 @@ class Heap {
       if (size() < max_size_) {
         heap_.push_back(new_point);
       }
+      else if (pos == max_size_) {
+        // can not insert
+        return max_size_;
+      }
 
       // put new point at pos
       for (size_t i = size(); i > pos+1; i--) {

@@ -158,8 +158,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
                                       DynamicBitset& boundary_point_flag); 
 
     int UpdatePointKnn(IntIndex point1, IntIndex point2, DistanceType dist);
-    int tUpdatePointKnn(IntIndex point1, IntIndex point2, DistanceType dist);
-
 
     void LocalitySensitiveRefine(IdList& point_id2bucket_id, DynamicBitset& boundary_point_flag, int iteration_num); 
 
@@ -315,8 +313,6 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::MarkCornerPoints(
     DynamicBitset& boundary_point_flag, IdList& point_id2bucket_id) {
 
-  std::cout << "boundary: " << boundary_point_flag.size() << std::endl;
-  std::cout << "point : " << boundary_point_flag.size() << std::endl;
   int cc = 0;
   for (auto x : boundary_point_flag) {
     if (x) cc++;
@@ -384,10 +380,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineReset(
     }
     */
 
-    
-    if (new_effect_size < 1 || new_effect_size > 20) {
-      std::cout << " not effect " << std::endl;
-    }
     point_bi_neighbor.reset(new_effect_size, point_neighbor[new_effect_size-1].distance);
   }
 }
@@ -423,7 +415,7 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineUpdate(
     BiNeighborInfoGraph& point2bi_neighbor) {
 
   int update_count = 0;
- // #pragma omp parallel for schedule(dynamic, 5) default(shared) reduction(+:update_count)
+  #pragma omp parallel for schedule(dynamic, 5) default(shared) reduction(+:update_count)
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
     bool is_corner_point = boundary_point_flag[point_id];
     BiNeighbor& point_bi_neighbor = point2bi_neighbor[point_id];
@@ -442,50 +434,20 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineUpdate(
       sample_num = search_point_neighbor_num_;
     }
 
-    /*
     if (reverse_new_list.size() > sample_num) {
       std::random_shuffle(reverse_new_list.begin(), reverse_new_list.end());
       reverse_new_list.resize(sample_num);
     }
-    */
-    //new_list.insert(new_list.end(), reverse_new_list.begin(), reverse_new_list.end());
+    new_list.insert(new_list.end(), reverse_new_list.begin(), reverse_new_list.end());
 
     IdList& old_list = point_bi_neighbor.old_list;
     IdList& reverse_old_list = point_bi_neighbor.reverse_old_list;
 
-    /*
     if (reverse_old_list.size() > sample_num) {
       std::random_shuffle(reverse_old_list.begin(), reverse_old_list.end());
       reverse_old_list.resize(sample_num);
     }
-    */
-    //old_list.insert(old_list.end(), reverse_old_list.begin(), reverse_old_list.end());
-
-    /*
-    std::cout << "===========localjoin_" << point_id <<"_"<< std::endl;
-    std::cout << "before_join"<< std::endl;
-    std::cout << "new: ";
-    for (auto x: new_list) {
-      std::cout << x << " ";
-    }
-    std::cout << std::endl;
-    std::cout << "old: ";
-    for (auto x: old_list) {
-      std::cout << x << " ";
-    }
-    std::cout << std::endl;
-
-    for (auto x :old_list) {
-      if (x  > 100000) {
-        std::cout << "wrong old x " << x << " point: " << point_id << std::endl;
-      }
-    }
-    for (auto x :new_list) {
-      if (x  > 100000) {
-        std::cout << "wrong new x " << x << " point: " << point_id << std::endl;
-      }
-    }
-    */
+    old_list.insert(old_list.end(), reverse_old_list.begin(), reverse_old_list.end());
 
     // update new 
     int cur_update_count = 0;
@@ -507,6 +469,8 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineUpdate(
         cur_update_count += UpdatePointKnn(u1, u2, dist);
       }
     }
+    update_count += cur_update_count;
+    updated_point_flag[point_id] = cur_update_count > 0 ? 1 : 0;
   }
   return update_count;
 }
@@ -552,48 +516,6 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointKnn(
   update_count += update_pos < point_neighbor_num_ ? 1 : 0;
   update_pos = all_point_knn_graph_[point2].parallel_insert_array(PointDistancePairItem(point1, dist, true));
   update_count += update_pos < point_neighbor_num_ ? 1 : 0;
-
-  return update_count;
-}
-
-template <typename PointType, typename DistanceFuncType, typename DistanceType>
-int GraphIndex<PointType, DistanceFuncType, DistanceType>::tUpdatePointKnn(
-    IntIndex point1, IntIndex point2, DistanceType dist) {
-
-  if (point1 == point2) {
-    return 0;
-  }
-
-  int update_count = 0;
-
-  std::cout << "beforeupdate_" << point1 << "_" << point2  << "xxxx"<< std::endl;
-  for (int j = 0; j < all_point_knn_graph_[point1].size(); j++) {
-    std::cout << all_point_knn_graph_[point1][j].id << ":"<<all_point_knn_graph_[point1][j].distance << " " ;
-  }
-  std::cout << std::endl;
-
-  int update_pos = all_point_knn_graph_[point1].parallel_insert_array(PointDistancePairItem(point2, dist, true));
-
-  std::cout << "end update " << std::endl;
-  for (int j = 0; j < all_point_knn_graph_[point1].size(); j++) {
-    std::cout << all_point_knn_graph_[point1][j].id << ":"<<all_point_knn_graph_[point1][j].distance << " " ;
-  }
-  std::cout << std::endl;
-
-  update_count += update_pos < point_neighbor_num_ ? 1 : 0;
-
-    std::cout << "beforeupdate_" << point2 <<"_" << point1<< std::endl;
-    for (int j = 0; j < all_point_knn_graph_[point2].size(); j++) {
-      std::cout << all_point_knn_graph_[point2][j].id << ":"<<all_point_knn_graph_[point2][j].distance << " " ;
-    }
-    std::cout << std::endl;
-  update_pos = all_point_knn_graph_[point2].parallel_insert_array(PointDistancePairItem(point1, dist, true));
-  update_count += update_pos < point_neighbor_num_ ? 1 : 0;
-    std::cout << "endupdate" << std::endl;
-    for (int j = 0; j < all_point_knn_graph_[point2].size(); j++) {
-      std::cout << all_point_knn_graph_[point2][j].id << ":"<<all_point_knn_graph_[point2][j].distance << " " ;
-    }
-    std::cout << std::endl;
 
   return update_count;
 }
