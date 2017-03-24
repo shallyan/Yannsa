@@ -364,8 +364,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineReset(
     size_t new_effect_size = point_neighbor.effect_size(point_neighbor_num_);
 
     // else resize to have search_point_neighbor_num new points
-    /*
-    if (loop > 0 && updated_point_flag[point_id]) {
+    if (updated_point_flag[point_id]) {
       if (point_bi_neighbor.effect_size < point_neighbor.size()) {
         int new_point_count = 0;
         for (new_effect_size = 0; new_effect_size < point_neighbor.size(); new_effect_size++) {
@@ -378,7 +377,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineReset(
         }
       }
     }
-    */
 
     point_bi_neighbor.reset(new_effect_size, point_neighbor[new_effect_size-1].distance);
   }
@@ -393,8 +391,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::RefineInit(
     BiNeighbor& point_bi_neighbor = point2bi_neighbor[point_id];
     PointNeighbor& point_neighbor = all_point_knn_graph_[point_id];
     
-    //size_t effect_size = point_neighbor.effect_size(point_bi_neighbor.effect_size);
-    size_t effect_size = point_neighbor.size();
+    size_t effect_size = point_neighbor.effect_size(point_bi_neighbor.effect_size);
     for (size_t i = 0; i < effect_size; i++) {
       PointDistancePairItem& neighbor = point_neighbor[i];
       BiNeighbor& neighbor_bi_neighbor = point2bi_neighbor[neighbor.id];
