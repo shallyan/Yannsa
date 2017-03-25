@@ -268,6 +268,9 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   std::cout << "split and merge: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
   }
 
+  std::cout << "merged bucket size: " << merged_bucket_map_.size() << std::endl;
+  std::cout << "splited bucket size: " << bucket2point_list.size() - OriginBucketSize() << std::endl;
+
   // build point knn graph
   {
   clock_t s, e;
@@ -524,6 +527,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucket2Bucket
     ContinuesPointKnnGraph& to_update_candidates,
     bool is_full_locality) {
 
+  DynamicBitset visited_point_flag(PointSize(), 0);
   const IdList& bucket_point_list = bucket2point_list[bucket_id];
   // connect bucket_id to neighbor_bucket_list
   for (IntIndex point_id : bucket_point_list) {
@@ -535,7 +539,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucket2Bucket
     }
     
     const PointType& point_vec = GetPoint(point_id);
-    DynamicBitset visited_point_flag(PointSize(), 0);
 
     IdList start_point_list;
     // check whether neighor has been updated
@@ -563,6 +566,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucket2Bucket
       }
     }
 
+    visited_point_flag.assign(PointSize(), 0);
     for (IntIndex start_point_id : start_point_list) {
       GreedyFindKnnInGraph(point_vec, all_point_knn_graph_, start_point_id,
                            point_update_neighbor, visited_point_flag);
@@ -612,7 +616,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectSplitedBucket
   for (size_t pair_id = 0; pair_id < bucket_connect_pair_list.size(); pair_id++) {
     IntIndex bucket_id = bucket_connect_pair_list[pair_id].first;
     IdList& to_connect_list = bucket_connect_pair_list[pair_id].second;
-    ConnectBucket2BucketList(bucket2point_list, bucket_id, to_connect_list, to_update_candidates, false);
+    ConnectBucket2BucketList(bucket2point_list, bucket_id, to_connect_list, to_update_candidates, true);
   }
 
   #pragma omp parallel for schedule(dynamic, 20)
@@ -702,8 +706,10 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSea
 
   ContinuesPointKnnGraph to_update_candidates(PointSize(), PointNeighbor(point_neighbor_num_));
 
+  util::Log("before connect splited");
   ConnectSplitedBuckets(bucket2point_list, to_update_candidates);
 
+  util::Log("before connect all splited");
   clock_t s, e;
   s = clock();
   // to_update_candidates will be cleared by ConnectSplitedBuckets
