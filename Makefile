@@ -11,6 +11,9 @@ EXAMPLE_ROOT=example
 knn_graph_test : $(EXAMPLE_ROOT)/knn_graph_test.cc
 	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
 
+knn_graph : $(EXAMPLE_ROOT)/knn_graph.cc
+	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
+
 bruteforce : $(EXAMPLE_ROOT)/bruteforce.cc
 	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
 
