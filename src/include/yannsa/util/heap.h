@@ -28,6 +28,10 @@ class Heap {
       return heap_.size();
     }
 
+    inline bool full() {
+      return heap_.size() == max_size_;
+    }
+
     inline size_t effect_size(size_t used_size) {
       return std::min(size(), used_size);
     }
@@ -130,7 +134,7 @@ class Heap {
       heap_.pop_back();
     }
 
-  //private:
+  private:
     std::vector<PointType> heap_;
     size_t max_size_;
     Mutex lock_;

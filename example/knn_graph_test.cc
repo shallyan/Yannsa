@@ -84,10 +84,10 @@ int LoadEmbeddingData(const string& file_path,
   return vec_dim;
 }
 int main(int argc, char** argv) {
-  if (argc < 11) {
+  if (argc < 12) {
     cout << "binary -data_path -graph_path -hash_length -point_neighbor_num "
          << "-max_point_neighbor_num -bucket_neighbor_num -min_bucket_size "
-         << "-max_bucket_size -refine_iter_num -search_point_neighbor_num "
+         << "-max_bucket_size -local_refine_iter_num -global_refine_iter_num -search_point_neighbor_num "
          << "-search_start_point_num"
          << endl;
     return 0;
@@ -103,10 +103,10 @@ int main(int argc, char** argv) {
   param.bucket_neighbor_num = atoi(argv[6]);
   param.min_bucket_size = atoi(argv[7]);
   param.max_bucket_size = atoi(argv[8]);
-  param.refine_iter_num = atoi(argv[9]);
-  param.search_point_neighbor_num = atoi(argv[10]);
-  param.search_start_point_num = atoi(argv[11]);
-   
+  param.local_refine_iter_num = atoi(argv[9]);
+  param.global_refine_iter_num = atoi(argv[10]);
+  param.search_point_neighbor_num = atoi(argv[11]);
+  param.search_start_point_num = atoi(argv[12]);
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   int point_dim = LoadEmbeddingData(data_path, dataset_ptr);
