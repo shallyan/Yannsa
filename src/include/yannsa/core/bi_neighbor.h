@@ -84,7 +84,7 @@ struct ContinuesBiNeighborInfo {
       InitStatus();
     }
 
-    void Update(int new_point_num, int sample_num) {
+    void Update(int new_point_num) {
       #pragma omp parallel for schedule(static)
       for (IntIndex point_id = 0; point_id < max_point_id; point_id++) {
         PointBiNeighbor& point_bi_neighbor = point2bi_neighbor[point_id];
@@ -129,31 +129,6 @@ struct ContinuesBiNeighborInfo {
             neighbor_bi_neighbor.parallel_insert_reverse(point_id, neighbor.flag);
           }
           neighbor.flag = false;
-        }
-      }
-
-      #pragma omp parallel for schedule(static)
-      for (IntIndex point_id = 0; point_id < max_point_id; point_id++) {
-        PointBiNeighbor& point_bi_neighbor = point2bi_neighbor[point_id];
-        if (!point_bi_neighbor.is_join) {
-          continue;
-        }
-
-        IdList& new_list = point_bi_neighbor.new_list;
-        IdList& reverse_new_list = point_bi_neighbor.reverse_new_list;
-        if (new_list.size() == 0 && reverse_new_list.size() == 0) {
-          continue;
-        }
-
-        if (reverse_new_list.size() > sample_num) {
-          std::random_shuffle(reverse_new_list.begin(), reverse_new_list.end());
-          reverse_new_list.resize(sample_num);
-        }
-
-        IdList& reverse_old_list = point_bi_neighbor.reverse_old_list;
-        if (reverse_old_list.size() > sample_num) {
-          std::random_shuffle(reverse_old_list.begin(), reverse_old_list.end());
-          reverse_old_list.resize(sample_num);
         }
       }
     }
