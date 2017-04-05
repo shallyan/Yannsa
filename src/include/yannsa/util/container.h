@@ -36,7 +36,7 @@ class Container {
       key2id_.clear();
     }
 
-    inline const PointType& operator[] (IntIndex i) {
+    inline PointType& operator[] (IntIndex i) {
       return id2point_[i];
     }
 

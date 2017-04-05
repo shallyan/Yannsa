@@ -51,6 +51,8 @@ int LoadEmbeddingData(const string& file_path,
   int has_read_num = 0;
   size_t ten_percent_num = vec_num / 10 + 10;
 
+  PointVector<float> center_point(vec_dim, 0.0);
+
   while (getline(in_file, buff)) {
     stringstream one_word_vec_stream(buff);
 
@@ -67,6 +69,10 @@ int LoadEmbeddingData(const string& file_path,
     }
     Normalize(point);
 
+    for (size_t i = 0; i < point.size(); ++i) {
+      center_point[i] += point[i];
+    }
+
     //check dim num
     assert(dim_count == vec_dim);
 
@@ -80,6 +86,19 @@ int LoadEmbeddingData(const string& file_path,
 
   cout << "create dataset done, data num: " 
        << dataset_ptr->size() << endl;
+
+  for (size_t i = 0; i < center_point.size(); ++i) {
+    center_point[i] /= dataset_ptr->size();
+  }
+
+  for (size_t i = 0; i < dataset_ptr->size(); ++i) {
+    PointVector<float>& point = (*dataset_ptr)[i];
+    for (size_t j = 0; j < center_point.size(); ++j) {
+      point[j] -= center_point[j];
+    }
+  }
+    
+  cout << "centerlized done" << endl; 
 
   return vec_dim;
 }
