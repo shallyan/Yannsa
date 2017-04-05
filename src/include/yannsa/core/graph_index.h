@@ -253,7 +253,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   }
 
   // search
-  //SortBucketPointsByInDegree(bucket2point_list);
+  SortBucketPointsByInDegree(bucket2point_list);
   FindBucketKeyPoints(bucket2point_list, bi_neighbor_info);
   util::Log("before search");
   LocalitySensitiveSearch(bucket2point_list, bucket_knn_graph);
