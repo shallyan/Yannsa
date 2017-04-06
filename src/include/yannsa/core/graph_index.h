@@ -258,7 +258,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   util::Log("before search");
   LocalitySensitiveSearch(bucket2point_list, bucket_knn_graph);
 
-  /*
   util::Log("before global refine");
   bi_neighbor_info.Init();
   for (int loop = 0; loop < index_param.global_refine_iter_num; loop++) {
@@ -272,7 +271,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
     e1 = clock();
     std::cout << "refine update: " << (e1-e)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
   }
-  */
 
   // build
   this->have_built_ = true;
@@ -413,8 +411,13 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucket2Bucket
     // point search from key point in every bucket
     if (start_point_list.empty()) {
       for (IntIndex neighbor_bucket_id : neighbor_bucket_list) {
+        const IdList& key_point_list = bucket2key_point_[neighbor_bucket_id];
+        size_t key_point_size = std::min(static_cast<size_t>(search_start_point_num_), key_point_list.size());
+        start_point_list.insert(start_point_list.end(), key_point_list.begin(), key_point_list.begin()+key_point_size);
+        /*
         GetNearestKeyPoint(neighbor_bucket_id, search_start_point_num_,
                            point_vec, start_point_list);
+                           */
       }
     }
 
@@ -730,6 +733,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindBucketKeyPoints(
         point_pass_flag[neighbor_id] = 1;
       }
     }
+    std::random_shuffle(key_point_list.begin(), key_point_list.end());
   }
 }
 
