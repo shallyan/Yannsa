@@ -37,9 +37,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     // bucket
     typedef PointDistancePair<IntCode, IntCode> BucketDistancePairItem;
     typedef util::Heap<BucketDistancePairItem> BucketNeighbor;
-    typedef std::vector<BucketNeighbor> BucketKnnGraph;
     typedef std::unordered_map<IntIndex, IntIndex> BucketId2BucketIdMap; 
-    typedef std::unordered_map<IntIndex, IdList> BucketId2BucketIdListMap; 
     typedef std::vector<IdList> BucketId2BucketIdList;
 
     // point
@@ -285,6 +283,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   util::Log("end build buckets knn graph");
 
   util::Log("before local refine");
+  // only refine local points
   InitPointNeighborInfo(false);
   for (int loop = 0; loop < index_param.local_refine_iter_num; loop++) {
     UpdatePointNeighborInfo();
@@ -296,6 +295,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   }
   util::Log("end local refine");
 
+  InitPointNeighborInfo(true);
   // search
   SortBucketPointsByInDegree();
   FindBucketKeyPoints();
@@ -759,7 +759,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildAllBucketsAppro
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindBucketKeyPoints() {
 
-  InitPointNeighborInfo(true);
   UpdatePointNeighborInfo();
   #pragma omp parallel for schedule(static)
   for (IntIndex bucket_id = 0; bucket_id < BucketSize(); bucket_id++) {
