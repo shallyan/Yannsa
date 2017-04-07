@@ -29,49 +29,60 @@ void Normalize(PointVector<float>& vec) {
   }
 }
 
-int LoadBinaryData(string file_path, DatasetPtr<float>& dataset_ptr) { 
-  ifstream in(file_path.c_str(), ios::binary);
+int LoadEmbeddingData(const string& file_path,
+                      DatasetPtr<float>& dataset_ptr) { 
 
-  if (!in.is_open()) {
+  ifstream in_file(file_path.c_str());
+  if (!in_file.is_open()) {
     cout << "open file error" << endl;
     exit(-1);
   }
-  int vec_dim=0, vec_num=0;
-  in.read((char*)&vec_dim,4);
-  in.seekg(0, ios::end);
-  vec_num = (size_t)in.tellg() / (vec_dim+1) / 4;
+
+  string buff;
+
+  //read word and dim number
+  int vec_num = 0, vec_dim = 0;
+  getline(in_file, buff);
+  stringstream count_stream(buff);
+  count_stream >> vec_num >> vec_dim; 
   cout << "vec num: " << vec_num << "\t" 
        << "vec dim: " << vec_dim << endl;
 
-  in.seekg(0, ios::beg);
-
-  size_t ten_percent_num = vec_num / 10;
+  int has_read_num = 0;
+  size_t ten_percent_num = vec_num / 10 + 10;
 
   PointVector<float> center_point(vec_dim, 0.0);
-  for(size_t i = 0; i < vec_num; i++){
-    in.seekg(4, ios::cur);
+
+  while (getline(in_file, buff)) {
+    stringstream one_word_vec_stream(buff);
+
+    //read word firstly
+    string word;
+    one_word_vec_stream >> word;
+
+    //then read value
     PointVector<float> point(vec_dim);
-    for (int j = 0; j < vec_dim; j++) {
-      float value;
-      in.read((char*)(&value), 4);
-      point[j] = value;
+    double value = 0.0;
+    int dim_count = 0;
+    while (one_word_vec_stream >> value) { 
+      point[dim_count++] = value;
     }
+    Normalize(point);
 
     for (size_t i = 0; i < point.size(); ++i) {
       center_point[i] += point[i];
     }
 
-    stringstream key_str;
-    key_str << i;
-    string key;
-    key_str >> key;
-    dataset_ptr->insert(key, point);
+    //check dim num
+    assert(dim_count == vec_dim);
 
-    if (i % ten_percent_num == 0) {
-      cout << "read " << i << " points" << endl;
+    dataset_ptr->insert(word, point);
+    
+    has_read_num++;
+    if (has_read_num % ten_percent_num == 0) {
+      cout << "read " << has_read_num << " points" << endl;
     }
   }
-  in.close();
 
   cout << "create dataset done, data num: " 
        << dataset_ptr->size() << endl;
@@ -86,8 +97,11 @@ int LoadBinaryData(string file_path, DatasetPtr<float>& dataset_ptr) {
       point[j] -= center_point[j];
     }
   }
-}
+    
+  cout << "centerlized done" << endl; 
 
+  return vec_dim;
+}
 int main(int argc, char** argv) {
   if (argc < 12) {
     cout << "binary -data_path -graph_path -hash_length -point_neighbor_num "
@@ -114,11 +128,11 @@ int main(int argc, char** argv) {
   param.search_start_point_num = atoi(argv[12]);
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
-  int point_dim = LoadBinaryData(data_path, dataset_ptr);
+  int point_dim = LoadEmbeddingData(data_path, dataset_ptr);
   
   EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
   BaseEncoderPtr<PointVector<float> > 
-      binary_encoder_ptr(new BinaryEncoder<PointVector<float>, float>(point_dim, hash_length, dataset_ptr));
+      binary_encoder_ptr(new BinaryEncoder<PointVector<float>, float>(point_dim, hash_length));
 
   graph_index_ptr->Build(param, binary_encoder_ptr);
   graph_index_ptr->Save(graph_path);

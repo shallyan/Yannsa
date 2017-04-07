@@ -252,13 +252,13 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   util::Log("end local refine");
   }
 
-  /*
   // search
   SortBucketPointsByInDegree(bucket2point_list);
   FindBucketKeyPoints(bucket2point_list, bi_neighbor_info);
   util::Log("before search");
   LocalitySensitiveSearch(bucket2point_list, bucket_knn_graph);
 
+  /*
   util::Log("before global refine");
   bi_neighbor_info.Init();
   for (int loop = 0; loop < index_param.global_refine_iter_num; loop++) {
