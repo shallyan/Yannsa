@@ -56,14 +56,25 @@ struct DotDistance {
 template <typename PointType, typename CoordinateType>
 class BinaryEncoder : public util::BaseEncoder<PointType> {
   public:
-    BinaryEncoder(int point_dim, int code_length) 
+    BinaryEncoder(int point_dim, int code_length, DatasetPtr<CoordinateType>& dataset_ptr) 
         : util::BaseEncoder<PointType>(code_length) {
       util::RealRandomGenerator<CoordinateType> random_generator(-1.0, 1.0);
+      util::IntRandomGenerator int_random(0, dataset_ptr->size()-1);
+
       for (int col = 0; col < code_length; col++) {
         std::vector<CoordinateType> one_hash_func;
         for (int row = 0; row < point_dim; row++) {
           one_hash_func.push_back(random_generator.Random());
         }
+        PointType& random_point = (*dataset_ptr)[int_random.Random()];
+        CoordinateType b = 0;
+        if (col > 4) {
+        for (int j = 0; j < one_hash_func.size(); j++) {
+          b += (random_point[j]/2) * one_hash_func[j];
+        }
+        }
+        one_hash_func.push_back(-b);
+
         hash_func_set_.push_back(one_hash_func);
       }
     }
@@ -72,9 +83,11 @@ class BinaryEncoder : public util::BaseEncoder<PointType> {
       std::vector<CoordinateType> hash_results;
       for (int i = 0; i < hash_func_set_.size(); i++) {
         CoordinateType result = 0;
-        for (int j = 0; j < hash_func_set_[i].size(); j++) {
+        int point_dim = hash_func_set_[i].size()-1;
+        for (int j = 0; j < point_dim; j++) {
           result += point[j] * hash_func_set_[i][j];
         }
+        result += hash_func_set_[i][point_dim];
         hash_results.push_back(result);
       }
 
