@@ -252,6 +252,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   util::Log("end local refine");
   }
 
+  /*
   // search
   SortBucketPointsByInDegree(bucket2point_list);
   FindBucketKeyPoints(bucket2point_list, bi_neighbor_info);
@@ -271,6 +272,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
     e1 = clock();
     std::cout << "refine update: " << (e1-e)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
   }
+  */
 
   // build
   this->have_built_ = true;

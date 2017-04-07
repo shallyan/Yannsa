@@ -68,7 +68,7 @@ class BinaryEncoder : public util::BaseEncoder<PointType> {
         }
         PointType& random_point = (*dataset_ptr)[int_random.Random()];
         CoordinateType b = 0;
-        if (col > 4) {
+        if (col > 2) {
         for (int j = 0; j < one_hash_func.size(); j++) {
           b += (random_point[j]/2) * one_hash_func[j];
         }
