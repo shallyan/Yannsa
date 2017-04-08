@@ -58,7 +58,7 @@ class BinaryEncoder : public util::BaseEncoder<PointType> {
   public:
     BinaryEncoder(int point_dim, int code_length) 
         : util::BaseEncoder<PointType>(code_length) {
-      util::RealRandomGenerator<CoordinateType> random_generator(-1.0, 1.0);
+      util::GaussRealRandomGenerator<CoordinateType> random_generator(0.0, 1.0);
 
       for (int col = 0; col < code_length; col++) {
         std::vector<CoordinateType> one_hash_func;

@@ -69,6 +69,10 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
       // basic info
       IntIndex bucket_id;
 
+      // status
+      bool is_updated;
+      bool is_join;
+
       // for local join
       IdList old_list;
       IdList new_list;
@@ -76,8 +80,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
       IdList reverse_new_list;
       DistanceType radius;
       size_t effect_size;
-      bool is_updated;
-      bool is_join;
 
       util::Mutex lock;
 
@@ -167,6 +169,8 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     void SortBucketPointsByInDegree();
 
     void FindBucketKeyPoints();
+
+    void BuildNavigateGraph();
 
     void GreedyFindKnnInGraph(const PointType& query,
                               IntIndex start_point_id, PointNeighbor& k_candidates_heap,
@@ -296,9 +300,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   util::Log("end local refine");
 
   InitPointNeighborInfo(true);
-  // search
-  SortBucketPointsByInDegree();
-  FindBucketKeyPoints();
   util::Log("before search");
   LocalitySensitiveSearch();
 
@@ -357,6 +358,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointNeighborI
       continue;
     }
     
+    IntIndex effect_size = point_info.knn.size();
+    /*
     IntIndex effect_size = point_info.effect_size;
     auto& point_neighbor = point_info.knn;
     if (point_info.is_updated && effect_size < point_neighbor.size()) {
@@ -371,6 +374,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointNeighborI
         }
       }
     }
+    */
     point_info.reset(effect_size);
   }
 
@@ -551,10 +555,14 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::GetBucket2ConnectBuc
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSearch() {
 
-  std::vector<PointNeighbor> to_update_candidates(PointSize(), PointNeighbor(max_point_neighbor_num_ - point_neighbor_num_));
+  SortBucketPointsByInDegree();
+  FindBucketKeyPoints();
 
   BucketId2BucketIdList bucket2connect_list(BucketSize(), IdList());
   GetBucket2ConnectBucketList(bucket2connect_list);
+
+  std::vector<PointNeighbor> to_update_candidates(PointSize(), 
+              PointNeighbor(max_point_neighbor_num_ - point_neighbor_num_));
 
   #pragma omp parallel for schedule(dynamic, 1)
   for (IntIndex bucket_id = 0; bucket_id < BucketSize(); bucket_id++) {
@@ -757,6 +765,11 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildAllBucketsAppro
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildNavigateGraph() {
+
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindBucketKeyPoints() {
 
   UpdatePointNeighborInfo();
@@ -794,7 +807,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindBucketKeyPoints(
         point_pass_flag[neighbor_id] = 1;
       }
     }
-    std::random_shuffle(key_point_list.begin(), key_point_list.end());
   }
 }
 

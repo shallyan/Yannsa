@@ -22,10 +22,10 @@ class IntRandomGenerator {
 };
 
 template <typename CoordinateType>
-class RealRandomGenerator {
+class GaussRealRandomGenerator {
   public:
-    RealRandomGenerator(CoordinateType begin, CoordinateType end) 
-        : distribution_generator_(begin, end), random_generator_(/*std::random_device()()*/2) {
+    GaussRealRandomGenerator(CoordinateType mean, CoordinateType stddev) 
+        : distribution_generator_(mean, stddev), random_generator_(/*std::random_device()()*/2) {
     }
 
     CoordinateType Random() {
@@ -33,7 +33,7 @@ class RealRandomGenerator {
     }
   
   private:
-    std::uniform_real_distribution<CoordinateType> distribution_generator_;
+    std::normal_distribution<CoordinateType> distribution_generator_;
     std::mt19937 random_generator_;
 };
 
