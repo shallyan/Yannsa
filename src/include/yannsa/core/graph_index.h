@@ -64,7 +64,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     struct PointInfo {
       // graph
       PointNeighbor knn;
-      IdList nav_list;
 
       // basic info
       IntIndex bucket_id;
@@ -170,8 +169,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     void SortBucketPointsByInDegree();
 
     void FindBucketKeyPoints();
-
-    void BuildNavigateGraph();
 
     void GreedyFindKnnInGraph(const PointType& query,
                               IntIndex start_point_id, PointNeighbor& k_candidates_heap,
@@ -784,11 +781,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildAllBucketsAppro
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
     all_point_info_[point_id].knn.sort();
   }
-}
-
-template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildNavigateGraph() {
-
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
