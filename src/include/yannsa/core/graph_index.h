@@ -134,6 +134,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
                    std::vector<std::string>& search_result); 
 
     void Save(const std::string file_path);
+    void SaveBinary(const std::string file_path);
 
   private:
     void Init(const util::GraphIndexParameter& index_param,
@@ -237,6 +238,22 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Init(
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::SaveBinary(
+    const std::string file_path) {
+
+  std::ofstream save_file(file_path, std::ios::binary);
+  for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
+    PointNeighbor& point_neighbor = all_point_info_[point_id].knn;
+    unsigned k = point_neighbor.size();
+    save_file.write((char*)&k, sizeof(unsigned));
+    for (size_t i = 0; i < k; i++) {
+      save_file.write((char*)&point_neighbor[i].id, sizeof(unsigned));
+    }
+  }
+  save_file.close();
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::Save(
     const std::string file_path) {
 
@@ -269,6 +286,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   // encode and init bukcet
   util::Log("before hashing");
   LocalitySensitiveHashing();
+  std::cout << "bucket size: " << BucketSize() << std::endl;
 
   // construct bucket knn graph
   util::Log("before bucket knn");

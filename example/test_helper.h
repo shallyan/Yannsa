@@ -94,6 +94,47 @@ class RandomBinaryEncoder : public util::BinaryEncoder<PointType> {
     std::vector<std::vector<CoordinateType> > hash_func_set_;
 };
 
+template <typename PointType, typename CoordinateType>
+class RandomDataBinaryEncoder : public util::BinaryEncoder<PointType> {
+  public:
+    RandomDataBinaryEncoder(int point_dim, int code_length, DatasetPtr<CoordinateType>& dataset_ptr) 
+        : util::BinaryEncoder<PointType>(code_length) {
+      util::GaussRealRandomGenerator<CoordinateType> random_generator(0.0, 1.0);
+
+      for (int col = 0; col < code_length; col++) {
+        std::vector<CoordinateType> one_hash_func;
+        for (int row = 0; row < point_dim; row++) {
+          one_hash_func.push_back(random_generator.Random());
+        }
+
+        hash_func_set_.push_back(one_hash_func);
+      }
+    }
+
+    IntCode Encode(const PointType& point) {
+      std::vector<CoordinateType> hash_results;
+      for (int i = 0; i < hash_func_set_.size(); i++) {
+        CoordinateType result = 0;
+        for (int j = 0; j < hash_func_set_[i].size(); j++) {
+          result += point[j] * hash_func_set_[i][j];
+        }
+        hash_results.push_back(result);
+      }
+
+      IntCode code_result = 0;
+      for (int col = 0; col < this->code_length_; col++) {
+        CoordinateType one_hash_result = hash_results[col];
+        IntCode code_binary = one_hash_result > 0.0 ? 1 : 0; 
+        code_result = (code_result << 1) + code_binary; 
+      }
+
+      return code_result;
+    }
+
+  private:
+    std::vector<std::vector<CoordinateType> > hash_func_set_;
+};
+
 template <typename CoordinateType>
 using DotGraphIndex = core::GraphIndex<PointVector<CoordinateType>, 
                                        DotDistance<CoordinateType>, 

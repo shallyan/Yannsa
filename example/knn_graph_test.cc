@@ -102,6 +102,71 @@ int LoadEmbeddingData(const string& file_path,
 
   return vec_dim;
 }
+
+int LoadBinaryData(string file_path, DatasetPtr<float>& dataset_ptr) { 
+  ifstream in(file_path.c_str(), ios::binary);
+
+  if (!in.is_open()) {
+    cout << "open file error" << endl;
+    exit(-1);
+  }
+  int vec_dim=0, vec_num=0;
+  in.read((char*)&vec_dim,4);
+  in.seekg(0, ios::end);
+  vec_num = (size_t)in.tellg() / (vec_dim+1) / 4;
+  cout << "vec num: " << vec_num << "\t" 
+       << "vec dim: " << vec_dim << endl;
+
+  in.seekg(0, ios::beg);
+
+  size_t ten_percent_num = vec_num / 10 + 10;
+
+  PointVector<float> center_point(vec_dim, 0.0);
+
+  for(size_t i = 0; i < vec_num; i++){
+    in.seekg(4, ios::cur);
+    PointVector<float> point(vec_dim);
+    for (int j = 0; j < vec_dim; j++) {
+      float value;
+      in.read((char*)(&value), 4);
+      point[j] = value;
+    }
+
+    for (size_t i = 0; i < point.size(); ++i) {
+      center_point[i] += point[i];
+    }
+
+    stringstream key_str;
+    key_str << i;
+    string key;
+    key_str >> key;
+    dataset_ptr->insert(key, point);
+
+    if (i % ten_percent_num == 0) {
+      cout << "read " << i << " points" << endl;
+    }
+  }
+  in.close();
+
+  cout << "create dataset done, data num: " 
+       << dataset_ptr->size() << endl;
+
+  for (size_t i = 0; i < center_point.size(); ++i) {
+    center_point[i] /= dataset_ptr->size();
+  }
+
+  for (size_t i = 0; i < dataset_ptr->size(); ++i) {
+    PointVector<float>& point = (*dataset_ptr)[i];
+    for (size_t j = 0; j < center_point.size(); ++j) {
+      point[j] -= center_point[j];
+    }
+  }
+    
+  cout << "centerlized done" << endl; 
+
+  return vec_dim;
+}
+
 int main(int argc, char** argv) {
   if (argc < 11) {
     cout << "binary -data_path -graph_path -hash_length -point_neighbor_num "
@@ -127,14 +192,14 @@ int main(int argc, char** argv) {
   param.search_start_point_num = atoi(argv[11]);
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
-  int point_dim = LoadEmbeddingData(data_path, dataset_ptr);
+  int point_dim = LoadBinaryData(data_path, dataset_ptr);
   
   EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
   BinaryEncoderPtr<PointVector<float> > 
       binary_encoder_ptr(new RandomBinaryEncoder<PointVector<float>, float>(point_dim, hash_length));
 
   graph_index_ptr->Build(param, binary_encoder_ptr);
-  graph_index_ptr->Save(graph_path);
+  graph_index_ptr->SaveBinary(graph_path);
 
   return 0;
 }
