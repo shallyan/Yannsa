@@ -100,12 +100,20 @@ class RandomDataBinaryEncoder : public util::BinaryEncoder<PointType> {
     RandomDataBinaryEncoder(int point_dim, int code_length, DatasetPtr<CoordinateType>& dataset_ptr) 
         : util::BinaryEncoder<PointType>(code_length) {
       util::GaussRealRandomGenerator<CoordinateType> random_generator(0.0, 1.0);
+      util::IntRandomGenerator data_generator(0, dataset_ptr->size()-1);
 
       for (int col = 0; col < code_length; col++) {
         std::vector<CoordinateType> one_hash_func;
         for (int row = 0; row < point_dim; row++) {
           one_hash_func.push_back(random_generator.Random());
         }
+
+        PointType& random_point = (*dataset_ptr)[data_generator.Random()];
+        CoordinateType b = 0;
+        for (int row = 0; row < point_dim; row++) {
+          b -= one_hash_func[row] * (random_point[row]/2.0);
+        }
+        one_hash_func.push_back(b);
 
         hash_func_set_.push_back(one_hash_func);
       }
@@ -114,8 +122,9 @@ class RandomDataBinaryEncoder : public util::BinaryEncoder<PointType> {
     IntCode Encode(const PointType& point) {
       std::vector<CoordinateType> hash_results;
       for (int i = 0; i < hash_func_set_.size(); i++) {
-        CoordinateType result = 0;
-        for (int j = 0; j < hash_func_set_[i].size(); j++) {
+        int point_dim = hash_func_set_[i].size()-1;
+        CoordinateType result = hash_func_set_[i][point_dim];
+        for (int j = 0; j < point_dim; j++) {
           result += point[j] * hash_func_set_[i][j];
         }
         hash_results.push_back(result);

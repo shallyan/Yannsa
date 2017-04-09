@@ -197,7 +197,7 @@ int main(int argc, char** argv) {
   
   EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
   BinaryEncoderPtr<PointVector<float> > 
-      binary_encoder_ptr(new RandomBinaryEncoder<PointVector<float>, float>(point_dim, hash_length));
+      binary_encoder_ptr(new RandomDataBinaryEncoder<PointVector<float>, float>(point_dim, hash_length, dataset_ptr));
 
   graph_index_ptr->Build(param, binary_encoder_ptr);
   //graph_index_ptr->SaveBinary(graph_path);
