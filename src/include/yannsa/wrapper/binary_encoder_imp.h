@@ -18,7 +18,7 @@ class RandomBinaryEncoder : public util::BinaryEncoder<PointType> {
     RandomBinaryEncoder(int point_dim, int code_length) 
         : util::BinaryEncoder<PointType>(code_length), hash_func_set_(point_dim, code_length) {
 
-      util::RealRandomGenerator<CoordinateType> random_generator(-1.0, 1.0);
+      util::GaussRealRandomGenerator<CoordinateType> random_generator(0.0, 1.0);
       for (int col = 0; col < code_length; col++) {
         for (int row = 0; row < point_dim; row++) {
           hash_func_set_(row, col) = random_generator.Random();

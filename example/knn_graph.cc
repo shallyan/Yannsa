@@ -35,9 +35,6 @@ int LoadEmbeddingData(const string& file_path,
   cout << "vec num: " << vec_num << "\t" 
        << "vec dim: " << vec_dim << endl;
 
-  int has_read_num = 0;
-  size_t ten_percent_num = vec_num / 10 + 10;
-
   while (getline(in_file, buff)) {
     stringstream one_word_vec_stream(buff);
 
@@ -58,11 +55,6 @@ int LoadEmbeddingData(const string& file_path,
     assert(dim_count == vec_dim);
 
     dataset_ptr->insert(word, point);
-    
-    has_read_num++;
-    if (has_read_num % ten_percent_num == 0) {
-      cout << "read " << has_read_num << " points" << endl;
-    }
   }
 
   cout << "create dataset done, data num: " 
@@ -73,8 +65,8 @@ int LoadEmbeddingData(const string& file_path,
 int main(int argc, char** argv) {
   if (argc < 11) {
     cout << "binary -data_path -graph_path -hash_length -point_neighbor_num "
-         << "-max_point_neighbor_num -bucket_neighbor_num -min_bucket_size "
-         << "-max_bucket_size -refine_iter_num -search_point_neighbor_num "
+         << "-max_point_neighbor_num -min_bucket_size -max_bucket_size "
+         << "-local_refine_iter_num -global_refine_iter_num -search_point_neighbor_num "
          << "-search_start_point_num"
          << endl;
     return 0;
@@ -87,10 +79,10 @@ int main(int argc, char** argv) {
   util::GraphIndexParameter param;
   param.point_neighbor_num = atoi(argv[4]);
   param.max_point_neighbor_num = atoi(argv[5]);
-  param.bucket_neighbor_num = atoi(argv[6]);
-  param.min_bucket_size = atoi(argv[7]);
-  param.max_bucket_size = atoi(argv[8]);
-  param.refine_iter_num = atoi(argv[9]);
+  param.min_bucket_size = atoi(argv[6]);
+  param.max_bucket_size = atoi(argv[7]);
+  param.local_refine_iter_num = atoi(argv[8]);
+  param.global_refine_iter_num = atoi(argv[9]);
   param.search_point_neighbor_num = atoi(argv[10]);
   param.search_start_point_num = atoi(argv[11]);
    
@@ -98,11 +90,10 @@ int main(int argc, char** argv) {
   int point_dim = LoadEmbeddingData(data_path, dataset_ptr);
   
   DotGraphIndexPtr<float> graph_index_ptr(new DotGraphIndex<float>(dataset_ptr));
-  BaseEncoderPtr<PointVector<float> > 
-      binary_encoder_ptr(new BinaryEncoder<PointVector<float>, float>(point_dim, hash_length));
+  BinaryEncoderPtr<PointVector<float> > 
+      binary_encoder_ptr(new RandomBinaryEncoder<PointVector<float>, float>(point_dim, hash_length));
 
   graph_index_ptr->Build(param, binary_encoder_ptr);
-  graph_index_ptr->Save(graph_path);
 
   return 0;
 }

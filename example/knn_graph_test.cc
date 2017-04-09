@@ -192,14 +192,16 @@ int main(int argc, char** argv) {
   param.search_start_point_num = atoi(argv[11]);
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
-  int point_dim = LoadBinaryData(data_path, dataset_ptr);
+  //int point_dim = LoadBinaryData(data_path, dataset_ptr);
+  int point_dim = LoadEmbeddingData(data_path, dataset_ptr);
   
   EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
   BinaryEncoderPtr<PointVector<float> > 
       binary_encoder_ptr(new RandomBinaryEncoder<PointVector<float>, float>(point_dim, hash_length));
 
   graph_index_ptr->Build(param, binary_encoder_ptr);
-  graph_index_ptr->SaveBinary(graph_path);
+  //graph_index_ptr->SaveBinary(graph_path);
+  graph_index_ptr->Save(graph_path);
 
   return 0;
 }

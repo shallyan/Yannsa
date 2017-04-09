@@ -583,7 +583,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSea
   BucketId2BucketIdList bucket2connect_list(BucketSize(), IdList());
   GetBucket2ConnectBucketList(bucket2connect_list);
 
-  std::vector<PointNeighbor> to_update_candidates(PointSize(), 
+  std::vector<PointNeighbor> to_update_candidates(PointSize(),
               PointNeighbor(max_point_neighbor_num_ - point_neighbor_num_));
 
   #pragma omp parallel for schedule(dynamic, 1)
@@ -880,25 +880,19 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
 
   IntCode bucket_code = encoder_ptr_->Encode(query);
 
-  /*
-  // if bucket not exist, use nearest bucket 
-  IntIndex bucket_id = -1;
-  if (bucket_code2id_.find(bucket_code) != bucket_code2id_.end()) {
-    bucket_id = bucket_code2id_[bucket_code];
-  }
-  else {
-    IntCode nearest_bucket_code_dist;
-    for (IntIndex exist_bucket_id = 0; exist_bucket_id < bucket_id2code_.size(); exist_bucket_id++) {
-      IntCode exist_bucket_code = bucket_id2code_[exist_bucket_id];
-      IntCode exist_dist = encoder_ptr_->Distance(exist_bucket_code, bucket_code);
-      if (bucket_id == -1 || nearest_bucket_code_dist < exist_dist) {
-        bucket_id = exist_bucket_id;
-        nearest_bucket_code_dist = exist_dist;
-      }
+  // if bucket not exist, use 1-distance bucket 
+  IntIndex bucket_id = 0;
+  int mask = 1;
+  for (int i = 0; i <= encoder_ptr_->code_length(); i++) {
+    if (bucket_code2id_.find(bucket_code) != bucket_code2id_.end()) {
+      bucket_id = bucket_code2id_[bucket_code];
+      break;
     }
+    bucket_code ^= mask;
+    mask <<= 1;
   }
 
-  // bucket may be merged and merged bucket may also be merged
+  // bucket may be merged
   if (merged_bucket_map_.find(bucket_id) != merged_bucket_map_.end()) {
     bucket_id= merged_bucket_map_[bucket_id];
   }
@@ -906,23 +900,23 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
   // search from start points 
   PointNeighbor result_candidates_heap(k);
   DynamicBitset visited_point_flag(PointSize(), 0);
-  for (auto start_point_id : bucket2key_point_[bucket_id]) {
+  for (auto start_point_id : all_bucket_info_[bucket_id].key_point_list) {
     PointNeighbor tmp_result_candidates_heap(k);
     GreedyFindKnnInGraph(query,
                          start_point_id, tmp_result_candidates_heap,
                          visited_point_flag); 
-    for (auto iter = tmp_result_candidates_heap.begin(); iter != tmp_result_candidates_heap.end(); iter++) {
+    for (auto iter = tmp_result_candidates_heap.begin(); 
+              iter != tmp_result_candidates_heap.end(); iter++) {
       result_candidates_heap.insert_heap(*iter);
     }
   }
   
   result_candidates_heap.sort();
   search_result.clear();
-  auto result_iter = result_candidates_heap.begin();
-  for (; result_iter != result_candidates_heap.end(); result_iter++) {
+  for (auto result_iter = result_candidates_heap.begin();
+            result_iter != result_candidates_heap.end(); result_iter++) {
     search_result.push_back(this->dataset_ptr_->GetKeyById(result_iter->id));
   }
-  */
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
