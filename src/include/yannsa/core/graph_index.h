@@ -244,10 +244,14 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SaveBinary(
   std::ofstream save_file(file_path, std::ios::binary);
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
     PointNeighbor& point_neighbor = all_point_info_[point_id].knn;
-    unsigned k = point_neighbor.size();
-    save_file.write((char*)&k, sizeof(unsigned));
+    int k = point_neighbor_num_;
+    save_file.write((char*)&k, sizeof(int));
     for (size_t i = 0; i < k; i++) {
-      save_file.write((char*)&point_neighbor[i].id, sizeof(unsigned));
+      int id = 0;
+      if (i < point_neighbor_num.size()) {
+        id = point_neighbor[i].id;
+      }
+      save_file.write((char*)&id, sizeof(int));
     }
   }
   save_file.close();
@@ -287,6 +291,10 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   util::Log("before hashing");
   LocalitySensitiveHashing();
   std::cout << "bucket size: " << BucketSize() << std::endl;
+  for (int i = 0; i < BucketSize(); i++) {
+    std::cout << all_bucket_info_[i].point_dist.size() << " ";
+  }
+  std::cout << std::endl;
 
   // construct bucket knn graph
   util::Log("before bucket knn");
