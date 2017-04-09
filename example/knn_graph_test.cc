@@ -103,9 +103,9 @@ int LoadEmbeddingData(const string& file_path,
   return vec_dim;
 }
 int main(int argc, char** argv) {
-  if (argc < 12) {
+  if (argc < 11) {
     cout << "binary -data_path -graph_path -hash_length -point_neighbor_num "
-         << "-max_point_neighbor_num -bucket_neighbor_num -min_bucket_size "
+         << "-max_point_neighbor_num -min_bucket_size "
          << "-max_bucket_size -local_refine_iter_num -global_refine_iter_num -search_point_neighbor_num "
          << "-search_start_point_num"
          << endl;
@@ -119,20 +119,19 @@ int main(int argc, char** argv) {
   util::GraphIndexParameter param;
   param.point_neighbor_num = atoi(argv[4]);
   param.max_point_neighbor_num = atoi(argv[5]);
-  param.bucket_neighbor_num = atoi(argv[6]);
-  param.min_bucket_size = atoi(argv[7]);
-  param.max_bucket_size = atoi(argv[8]);
-  param.local_refine_iter_num = atoi(argv[9]);
-  param.global_refine_iter_num = atoi(argv[10]);
-  param.search_point_neighbor_num = atoi(argv[11]);
-  param.search_start_point_num = atoi(argv[12]);
+  param.min_bucket_size = atoi(argv[6]);
+  param.max_bucket_size = atoi(argv[7]);
+  param.local_refine_iter_num = atoi(argv[8]);
+  param.global_refine_iter_num = atoi(argv[9]);
+  param.search_point_neighbor_num = atoi(argv[10]);
+  param.search_start_point_num = atoi(argv[11]);
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   int point_dim = LoadEmbeddingData(data_path, dataset_ptr);
   
   EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
-  BaseEncoderPtr<PointVector<float> > 
-      binary_encoder_ptr(new BinaryEncoder<PointVector<float>, float>(point_dim, hash_length));
+  BinaryEncoderPtr<PointVector<float> > 
+      binary_encoder_ptr(new RandomBinaryEncoder<PointVector<float>, float>(point_dim, hash_length));
 
   graph_index_ptr->Build(param, binary_encoder_ptr);
   graph_index_ptr->Save(graph_path);

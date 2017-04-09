@@ -1,6 +1,6 @@
 #include "yannsa/util/parameter.h"
 #include "yannsa/util/logging.h"
-#include "yannsa/wrapper/binary_encoder.h"
+#include "yannsa/wrapper/binary_encoder_imp.h"
 #include "yannsa/wrapper/index_helper.h"
 #include <iostream>
 #include <fstream>

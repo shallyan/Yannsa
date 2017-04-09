@@ -1,9 +1,9 @@
-#ifndef YANNSA_BINARY_CODE_H
-#define YANNSA_BINARY_CODE_H 
+#ifndef YANNSA_BINARY_CODE_IMP_H
+#define YANNSA_BINARY_CODE_IMP_H 
 
 #include "yannsa/wrapper/representation.h"
 #include "yannsa/util/random_generator.h"
-#include "yannsa/util/base_encoder.h"
+#include "yannsa/util/binary_encoder.h"
 #include <random>
 
 namespace yannsa {
@@ -13,10 +13,11 @@ template <typename CoordinateType>
 using Hyperplane = Eigen::Matrix<CoordinateType, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>;
 
 template <typename PointType, typename CoordinateType>
-class BinaryEncoder : public util::BaseEncoder<PointType> {
+class RandomBinaryEncoder : public util::BinaryEncoder<PointType> {
   public:
-    BinaryEncoder(int point_dim, int code_length) 
-        : util::BaseEncoder<PointType>(code_length), hash_func_set_(point_dim, code_length) {
+    RandomBinaryEncoder(int point_dim, int code_length) 
+        : util::BinaryEncoder<PointType>(code_length), hash_func_set_(point_dim, code_length) {
+
       util::RealRandomGenerator<CoordinateType> random_generator(-1.0, 1.0);
       for (int col = 0; col < code_length; col++) {
         for (int row = 0; row < point_dim; row++) {
@@ -36,16 +37,6 @@ class BinaryEncoder : public util::BaseEncoder<PointType> {
       }
 
       return code_result;
-    }
-
-    IntCode Distance(const IntCode& a, const IntCode& b) {
-      IntCode hamming_dist = 0;
-      IntCode xor_result = a ^ b;
-      while (xor_result) {
-        xor_result &= xor_result-1;
-        hamming_dist++;
-      }
-      return hamming_dist;
     }
 
   private:

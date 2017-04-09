@@ -54,10 +54,10 @@ struct DotDistance {
 };
 
 template <typename PointType, typename CoordinateType>
-class BinaryEncoder : public util::BaseEncoder<PointType> {
+class RandomBinaryEncoder : public util::BinaryEncoder<PointType> {
   public:
-    BinaryEncoder(int point_dim, int code_length) 
-        : util::BaseEncoder<PointType>(code_length) {
+    RandomBinaryEncoder(int point_dim, int code_length) 
+        : util::BinaryEncoder<PointType>(code_length) {
       util::GaussRealRandomGenerator<CoordinateType> random_generator(0.0, 1.0);
 
       for (int col = 0; col < code_length; col++) {
@@ -88,16 +88,6 @@ class BinaryEncoder : public util::BaseEncoder<PointType> {
       }
 
       return code_result;
-    }
-
-    IntCode Distance(const IntCode& a, const IntCode& b) {
-      IntCode hamming_dist = 0;
-      IntCode xor_result = a ^ b;
-      while (xor_result) {
-        xor_result &= xor_result-1;
-        hamming_dist++;
-      }
-      return hamming_dist;
     }
 
   private:
