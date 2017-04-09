@@ -17,6 +17,9 @@ def ReadGraph(graph_path):
       fields = line.strip().split()
       point = fields[0]
       neighbor = set(fields[1:k+1])
+      if len(neighbor) != len(fields)-1:
+        print fields
+        print 'knn not unique'
       graph_dict[point] = neighbor
   return graph_dict
 

@@ -379,8 +379,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointNeighborI
       continue;
     }
     
-    IntIndex effect_size = point_info.knn.size();
-    /*
     IntIndex effect_size = point_info.effect_size;
     auto& point_neighbor = point_info.knn;
     if (point_info.is_updated && effect_size < point_neighbor.size()) {
@@ -395,7 +393,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointNeighborI
         }
       }
     }
-    */
     point_info.reset(effect_size);
   }
 
@@ -752,8 +749,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildAllBucketsAppro
         for (int j = i+1; j < point_list.size(); j++) {
           IntIndex neighbor_point = point_list[j];
           DistanceType dist = distance_func_(cur_point_vec, GetPoint(neighbor_point));
-          all_point_info_[cur_point].knn.insert_heap(PointDistancePairItem(neighbor_point, dist, false));
-          all_point_info_[neighbor_point].knn.insert_heap(PointDistancePairItem(cur_point, dist, false));
+          all_point_info_[cur_point].knn.insert_array(PointDistancePairItem(neighbor_point, dist, false));
+          all_point_info_[neighbor_point].knn.insert_array(PointDistancePairItem(cur_point, dist, false));
         }
       }
     }
@@ -770,16 +767,10 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildAllBucketsAppro
           }
           neighbor_set.insert(neighbor_id);
           DistanceType dist = distance_func_(GetPoint(neighbor_id), GetPoint(point_id));
-          all_point_info_[point_id].knn.insert_heap(PointDistancePairItem(neighbor_id, dist, true));
+          all_point_info_[point_id].knn.insert_array(PointDistancePairItem(neighbor_id, dist, true));
         }
       }
     }
-  }
-
-  // make heap becomes sorted array
-  #pragma omp parallel for schedule(dynamic, 1)
-  for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
-    all_point_info_[point_id].knn.sort();
   }
 }
 

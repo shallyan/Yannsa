@@ -82,8 +82,15 @@ class Heap {
       }
 
       // check repeat
-      if (pos >= 1 && heap_[pos-1] == new_point) {
-        return max_size_;
+      if (pos >= 1) {
+        for (int before = pos-1; before >=0; before--) {
+          if (heap_[before] < new_point) {
+            break;
+          }
+          if (heap_[before] == new_point) {
+            return max_size_;
+          }
+        }
       }
 
       // resize array size+1
