@@ -7,9 +7,11 @@
 #include <sstream>
 #include <utility>
 #include <string>
+#include <vector>
 #include <cassert>
 #include <unordered_map>
 #include <algorithm>
+#include <omp.h>
 
 using namespace std;
 using namespace yannsa;
@@ -63,17 +65,16 @@ int LoadEmbeddingData(const string& file_path,
   return vec_dim;
 }
 int main(int argc, char** argv) {
-  if (argc < 11) {
+  if (argc < 14) {
     cout << "binary -data_path -graph_path -hash_length -point_neighbor_num "
          << "-max_point_neighbor_num -min_bucket_size -max_bucket_size "
          << "-local_refine_iter_num -global_refine_iter_num -search_point_neighbor_num "
-         << "-search_start_point_num"
+         << "-search_start_point_num -query_path -k -search_result_path"
          << endl;
     return 0;
   }
   string data_path = argv[1];
   string graph_path = argv[2];
-
   int hash_length = atoi(argv[3]);
 
   util::GraphIndexParameter param;
@@ -85,15 +86,41 @@ int main(int argc, char** argv) {
   param.global_refine_iter_num = atoi(argv[9]);
   param.search_point_neighbor_num = atoi(argv[10]);
   param.search_start_point_num = atoi(argv[11]);
+
+  string query_path = argv[12];
+  int k = atoi(argv[13]);
+  string search_result_path = argv[14];
    
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   int point_dim = LoadEmbeddingData(data_path, dataset_ptr);
+  DatasetPtr<float> query_ptr(new Dataset<float>());
+  LoadEmbeddingData(query_path, query_ptr);
   
   DotGraphIndexPtr<float> graph_index_ptr(new DotGraphIndex<float>(dataset_ptr));
   BinaryEncoderPtr<PointVector<float> > 
       binary_encoder_ptr(new RandomBinaryEncoder<PointVector<float>, float>(point_dim, hash_length));
 
   graph_index_ptr->Build(param, binary_encoder_ptr);
+  graph_index_ptr->Save(graph_path);
+
+  vector<vector<string> > search_result(query_ptr->size());
+  util::Log("before search");
+  #pragma omp parallel for schedule(static)
+  for (int i = 0; i < query_ptr->size(); i++) {
+    graph_index_ptr->SearchKnn((*query_ptr)[i], k, search_result[i]);
+  }
+  util::Log("end search");
+
+  ofstream resulte_file(search_result_path);
+
+  for (int i = 0; i < query_ptr->size(); i++) {
+    resulte_file << query_ptr->GetKeyById(i) << " ";
+    for (auto nn : search_result[i]) {
+      resulte_file << nn << " ";
+    }
+    resulte_file << endl;
+  }
+  resulte_file.close();
 
   return 0;
 }

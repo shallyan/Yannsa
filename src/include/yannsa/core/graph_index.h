@@ -481,9 +481,11 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointKnn(
     return 0;
   }
 
+  /*
   if (!join_same_bucket && (all_point_info_[point1].bucket_id == all_point_info_[point2].bucket_id)) {
     return 0;
   }
+  */
 
   DistanceType dist = distance_func_(GetPoint(point1), GetPoint(point2));
   return UpdatePointKnn(point1, point2, dist);
@@ -581,7 +583,6 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSearch() {
 
   SortBucketPointsByInDegree();
-  UpdatePointNeighborInfo();
   FindBucketKeyPoints();
 
   BucketId2BucketIdList bucket2connect_list(BucketSize(), IdList());
@@ -602,9 +603,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSea
 
   #pragma omp parallel for schedule(static)
   for (int point_id = 0; point_id < PointSize(); point_id++) {
-    if (to_update_candidates[point_id].size() > 0) {
-      all_point_info_[point_id].knn.remax_size(max_point_neighbor_num_);
-    }
+    all_point_info_[point_id].knn.remax_size(max_point_neighbor_num_);
   }
 
   #pragma omp parallel for schedule(dynamic, 5)
@@ -789,6 +788,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildAllBucketsAppro
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindBucketKeyPoints() {
 
+  UpdatePointNeighborInfo();
   #pragma omp parallel for schedule(static)
   for (IntIndex bucket_id = 0; bucket_id < BucketSize(); bucket_id++) {
     BucketInfo& bucket_info = all_bucket_info_[bucket_id];
@@ -892,7 +892,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
   }
 
   // search from start points 
-  PointNeighbor result_candidates_heap(k);
+  PointNeighbor result_candidates(k);
   DynamicBitset visited_point_flag(PointSize(), 0);
   for (auto start_point_id : all_bucket_info_[bucket_id].key_point_list) {
     PointNeighbor tmp_result_candidates_heap(k);
@@ -901,14 +901,13 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
                          visited_point_flag); 
     for (auto iter = tmp_result_candidates_heap.begin(); 
               iter != tmp_result_candidates_heap.end(); iter++) {
-      result_candidates_heap.insert_heap(*iter);
+      result_candidates.insert_array(*iter);
     }
   }
   
-  result_candidates_heap.sort();
   search_result.clear();
-  for (auto result_iter = result_candidates_heap.begin();
-            result_iter != result_candidates_heap.end(); result_iter++) {
+  for (auto result_iter = result_candidates.begin();
+            result_iter != result_candidates.end(); result_iter++) {
     search_result.push_back(this->dataset_ptr_->GetKeyById(result_iter->id));
   }
 }
