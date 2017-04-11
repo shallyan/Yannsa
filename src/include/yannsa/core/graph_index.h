@@ -65,7 +65,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
       // graph
       PointNeighbor knn;
 
-      // basic info
+      // bucket info
       IntIndex bucket_id;
 
       // status
@@ -182,7 +182,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
                                   std::vector<PointNeighbor>& to_update_candidates);
 
     int UpdatePointKnn(IntIndex point1, IntIndex point2, DistanceType dist);
-    int UpdatePointKnn(IntIndex point1, IntIndex point2);
+    int UpdatePointKnn(IntIndex point1, IntIndex point2, bool join_same_bucket);
 
     void InitPointNeighborInfo(bool is_global);
     void UpdatePointNeighborInfo(); 
@@ -358,6 +358,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::InitPointNeighborInf
 
     point_info.is_updated = false;
 
+    //point_info.effect_size = std::min(static_cast<size_t>(point_neighbor_num_), point_info.knn.size());
     point_info.effect_size = point_info.knn.size();
     // generally, size >= 1
     if (point_info.effect_size > 0) {
@@ -381,7 +382,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointNeighborI
     
     IntIndex effect_size = point_info.effect_size;
     auto& point_neighbor = point_info.knn;
-    if (point_info.is_updated && effect_size < point_neighbor.size()) {
+    if (point_info.is_updated) {
       int new_point_count = 0;
       for (IntIndex i = 0; i < point_neighbor.size(); i++) {
         if (point_neighbor[i].flag) {
@@ -391,6 +392,9 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointNeighborI
             break;
           }
         }
+      }
+      if (effect_size < point_neighbor_num_) {
+        effect_size = std::min(point_neighbor.size(), static_cast<size_t>(point_neighbor_num_));
       }
     }
     point_info.reset(effect_size);
@@ -455,12 +459,12 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalJoin(
 
       for (size_t j = i+1; j < new_list.size(); j++) {
         IntIndex p2 = new_list[j];
-        cur_update_count += UpdatePointKnn(p1, p2);
+        cur_update_count += UpdatePointKnn(p1, p2, !is_global);
       }
 
       for (size_t j = 0; j < old_list.size(); j++) {
         IntIndex p2 = old_list[j];
-        cur_update_count += UpdatePointKnn(p1, p2);
+        cur_update_count += UpdatePointKnn(p1, p2, !is_global);
       }
     }
     update_count += cur_update_count;
@@ -471,9 +475,13 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalJoin(
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 int GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointKnn(
-    IntIndex point1, IntIndex point2) {
+    IntIndex point1, IntIndex point2, bool join_same_bucket) {
 
   if (point1 == point2) {
+    return 0;
+  }
+
+  if (!join_same_bucket && (all_point_info_[point1].bucket_id == all_point_info_[point2].bucket_id)) {
     return 0;
   }
 
@@ -492,6 +500,7 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointKnn(
   int update_count = 0;
   int update_pos = all_point_info_[point1].knn.parallel_insert_array(PointDistancePairItem(point2, dist, true));
   update_count += update_pos < point_neighbor_num_ ? 1 : 0;
+
   update_pos = all_point_info_[point2].knn.parallel_insert_array(PointDistancePairItem(point1, dist, true));
   update_count += update_pos < point_neighbor_num_ ? 1 : 0;
 
@@ -572,6 +581,7 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSearch() {
 
   SortBucketPointsByInDegree();
+  UpdatePointNeighborInfo();
   FindBucketKeyPoints();
 
   BucketId2BucketIdList bucket2connect_list(BucketSize(), IdList());
@@ -592,7 +602,9 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSea
 
   #pragma omp parallel for schedule(static)
   for (int point_id = 0; point_id < PointSize(); point_id++) {
-    all_point_info_[point_id].knn.remax_size(max_point_neighbor_num_);
+    if (to_update_candidates[point_id].size() > 0) {
+      all_point_info_[point_id].knn.remax_size(max_point_neighbor_num_);
+    }
   }
 
   #pragma omp parallel for schedule(dynamic, 5)
@@ -777,7 +789,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildAllBucketsAppro
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindBucketKeyPoints() {
 
-  UpdatePointNeighborInfo();
   #pragma omp parallel for schedule(static)
   for (IntIndex bucket_id = 0; bucket_id < BucketSize(); bucket_id++) {
     BucketInfo& bucket_info = all_bucket_info_[bucket_id];
