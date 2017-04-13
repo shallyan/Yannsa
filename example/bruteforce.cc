@@ -71,26 +71,29 @@ int LoadEmbeddingData(const string& file_path,
   return vec_dim;
 }
 int main(int argc, char** argv) {
-  if (argc != 4) {
-    cout << "binary -data_path -graph_path -point_neighbor_num "
+  if (argc != 5) {
+    cout << "binary -data_path -query_path -search_result_path -k"
          << endl;
     return 0;
   }
   string data_path = argv[1];
-  string graph_path = argv[2];
-  int point_neighbor_num = atoi(argv[3]);
+  string query_path = argv[2];
+  string search_result_path = argv[3];
+  int k = atoi(argv[4]);
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   int point_dim = LoadEmbeddingData(data_path, dataset_ptr);
   
+  DatasetPtr<float> query_ptr(new Dataset<float>());
+  LoadEmbeddingData(query_path, query_ptr);
+
   DotBruteForceIndexPtr<float> brute_index_ptr(new DotBruteForceIndex<float>(dataset_ptr));
 
-  int k = 11;
-  vector<vector<string> > real_knn(dataset_ptr->size());
+  vector<vector<string> > real_knn(query_ptr->size());
   int count = 0;
   #pragma omp parallel for schedule(static)
-  for (int i = 0; i < dataset_ptr->size(); i++) {
-    brute_index_ptr->SearchKnn((*dataset_ptr)[i], k, real_knn[i]);
+  for (int i = 0; i < query_ptr->size(); i++) {
+    brute_index_ptr->SearchKnn((*query_ptr)[i], k, real_knn[i]);
     #pragma omp atomic
     count += 1;
     if (count % 10000 == 0) {
@@ -98,15 +101,19 @@ int main(int argc, char** argv) {
     }
   }
 
-  ofstream save_file(graph_path);
+  ofstream save_file(search_result_path);
   for (int i = 0; i < real_knn.size(); i ++) {
-    string key = dataset_ptr->GetKeyById(i);
+    string key = query_ptr->GetKeyById(i);
     save_file << key << " ";
+    /*
+    // for graph knn
     if (real_knn[i][0] != key) {
       cout << "error" << endl;
       exit(1);
     }
     for (int j = 1; j < real_knn[i].size(); j++) {
+    */
+    for (int j = 0; j < real_knn[i].size(); j++) {
       save_file << real_knn[i][j] << " ";
     }
     save_file << endl;

@@ -49,8 +49,6 @@ class BaseIndex {
 
     virtual void Clear() {} 
 
-    virtual void SearchKnn(const PointType& query, int k, std::vector<std::string>& search_result) = 0;
-
   protected:
     DatasetPtr dataset_ptr_;
 

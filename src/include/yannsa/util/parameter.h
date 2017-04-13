@@ -15,6 +15,12 @@ struct GraphIndexParameter {
   int local_refine_iter_num;
 };
 
+struct GraphSearchParameter {
+  int k;
+  int search_k;
+  int search_start_point_num;
+};
+
 } // namespace util
 } // namespace yannsa
 

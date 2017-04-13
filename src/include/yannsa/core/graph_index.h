@@ -128,9 +128,9 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     void Build(const util::GraphIndexParameter& index_param, 
                util::BinaryEncoderPtr<PointType>& encoder_ptr); 
 
-    void SearchKnn(const PointType& query, 
-                   int k, 
-                   std::vector<std::string>& search_result); 
+    void SearchKnn(const PointType& query,
+                   const util::GraphSearchParameter& search_param,
+                   std::vector<std::string>& search_result);
 
     void Save(const std::string file_path);
     void SaveBinary(const std::string file_path);
@@ -865,7 +865,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SortBucketPointsByIn
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
-    const PointType& query, int k, 
+    const PointType& query,
+    const util::GraphSearchParameter& search_param,
     std::vector<std::string>& search_result) {
 
   if (!this->have_built_) {
@@ -888,27 +889,66 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
 
   // bucket may be merged
   if (merged_bucket_map_.find(bucket_id) != merged_bucket_map_.end()) {
-    bucket_id= merged_bucket_map_[bucket_id];
+    bucket_id = merged_bucket_map_[bucket_id];
   }
 
   // search from start points 
-  PointNeighbor result_candidates(k);
   DynamicBitset visited_point_flag(PointSize(), 0);
-  for (auto start_point_id : all_bucket_info_[bucket_id].key_point_list) {
-    PointNeighbor tmp_result_candidates_heap(k);
+  const IdList& key_list = all_bucket_info_[bucket_id].key_point_list;
+  IdList start_list(key_list.begin(), key_list.end());
+  if (start_list.size() < search_param.search_start_point_num) {
+    const IdList& knn_bucket = all_bucket_info_[bucket_id].knn_list;
+    for (auto neighbor_bucket : knn_bucket) {
+      const IdList& neighbor_bucket_key = all_bucket_info_[neighbor_bucket].key_point_list;
+      start_list.insert(start_list.end(), neighbor_bucket_key.begin(), neighbor_bucket_key.end());
+      if (start_list.size() >= search_param.search_start_point_num) {
+        break;
+      }
+    }
+  }
+  if (start_list.size() > search_param.search_start_point_num) {
+    start_list.resize(search_param.search_start_point_num);
+  }
+  
+  PointNeighbor result_candidates(search_param.search_k);
+  for (auto start_point_id : start_list) {
+    PointNeighbor tmp_result_candidates(search_param.search_k);
     GreedyFindKnnInGraph(query,
-                         start_point_id, tmp_result_candidates_heap,
-                         visited_point_flag); 
-    for (auto iter = tmp_result_candidates_heap.begin(); 
-              iter != tmp_result_candidates_heap.end(); iter++) {
+                         start_point_id, tmp_result_candidates,
+                         visited_point_flag);
+    for (auto iter = tmp_result_candidates.begin();
+              iter != tmp_result_candidates.end(); iter++) {
       result_candidates.insert_array(*iter);
+    }
+  }
+
+  while (true) {
+    IdList next_point_list;
+    for (auto result_iter = result_candidates.begin();
+              result_iter != result_candidates.end(); result_iter++) {
+      PointNeighbor& knn = all_point_info_[result_iter->id].knn;
+      int effect_size = knn.effect_size(point_neighbor_num_);
+      for (int i = 0; i < effect_size; i++) {
+        if (!visited_point_flag[knn[i].id]) {
+          next_point_list.push_back(knn[i].id);
+        }
+      }
+    }
+    if (next_point_list.empty()) {
+      break;
+    }
+
+    for (auto point : next_point_list) {
+      DistanceType dist = distance_func_(GetPoint(point), query);
+      PointDistancePairItem point_dist(point, dist);
+      result_candidates.insert_array(point_dist);
+      visited_point_flag[point] = 1;
     }
   }
   
   search_result.clear();
-  for (auto result_iter = result_candidates.begin();
-            result_iter != result_candidates.end(); result_iter++) {
-    search_result.push_back(this->dataset_ptr_->GetKeyById(result_iter->id));
+  for (int i = 0; i < result_candidates.effect_size(search_param.k); i++) {
+    search_result.push_back(this->dataset_ptr_->GetKeyById(result_candidates[i].id));
   }
 }
 
@@ -935,7 +975,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::GreedyFindKnnInGraph
     // explore current nearest point's neighbor
     PointNeighbor& point_neighbor = all_point_info_[cur_nearest_point].knn;
     // only search search_point_neighbor_num_ neighbors
-    size_t  neighbor_search_num = is_last_traverse ? point_neighbor_num_ : search_point_neighbor_num_;
+    size_t neighbor_search_num = is_last_traverse ? point_neighbor_num_ : search_point_neighbor_num_;
     size_t effect_size = point_neighbor.effect_size(neighbor_search_num);
     for (size_t i = 0; i < effect_size; i++) {
       IntIndex neighbor_id = point_neighbor[i].id;

@@ -16,8 +16,9 @@ def ReadGraph(graph_path):
     for line in f:
       fields = line.strip().split()
       point = fields[0]
-      neighbor = set(fields[1:k+1])
-      if len(neighbor) != len(fields)-1:
+      knn = fields[1:k+1]
+      neighbor = set(knn)
+      if len(neighbor) != len(knn):
         print fields
         print 'knn not unique'
       graph_dict[point] = neighbor
@@ -29,6 +30,7 @@ real_graph = ReadGraph(real_graph_path)
 hit = 0
 for point, real_neighbor in real_graph.iteritems():
   result_neighbor = result_graph[point]
-  hit += len(result_neighbor & real_neighbor)
+  cur_hit = len(result_neighbor & real_neighbor)
+  hit += cur_hit
 
 print 'Average precision: ', hit * 1.0 / (len(real_graph) * k)

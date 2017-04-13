@@ -65,11 +65,11 @@ int LoadEmbeddingData(const string& file_path,
   return vec_dim;
 }
 int main(int argc, char** argv) {
-  if (argc < 14) {
+  if (argc < 17) {
     cout << "binary -data_path -graph_path -hash_length -point_neighbor_num "
          << "-max_point_neighbor_num -min_bucket_size -max_bucket_size "
          << "-local_refine_iter_num -global_refine_iter_num -search_point_neighbor_num "
-         << "-search_start_point_num -query_path -k -search_result_path"
+         << "-search_start_point_num -query_path -k -search_k -search_start_point_num -search_result_path"
          << endl;
     return 0;
   }
@@ -88,8 +88,13 @@ int main(int argc, char** argv) {
   param.search_start_point_num = atoi(argv[11]);
 
   string query_path = argv[12];
-  int k = atoi(argv[13]);
-  string search_result_path = argv[14];
+
+  util::GraphSearchParameter search_param;
+  search_param.k = atoi(argv[13]);
+  search_param.search_k = atoi(argv[14]);
+  search_param.search_start_point_num = atoi(argv[15]);
+
+  string search_result_path = argv[16];
    
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   int point_dim = LoadEmbeddingData(data_path, dataset_ptr);
@@ -107,7 +112,7 @@ int main(int argc, char** argv) {
   util::Log("before search");
   #pragma omp parallel for schedule(static)
   for (int i = 0; i < query_ptr->size(); i++) {
-    graph_index_ptr->SearchKnn((*query_ptr)[i], k, search_result[i]);
+    graph_index_ptr->SearchKnn((*query_ptr)[i], search_param, search_result[i]);
   }
   util::Log("end search");
 
