@@ -35,6 +35,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
   private:
     // bucket
+    typedef std::vector<IntCode> CodeList;
     typedef PointDistancePair<IntCode, IntCode> BucketDistancePairItem;
     typedef util::Heap<BucketDistancePairItem> BucketNeighbor;
     typedef std::unordered_map<IntIndex, IntIndex> BucketId2BucketIdMap; 
@@ -152,6 +153,8 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     }
 
     void LocalitySensitiveHashing();
+
+    void GetNearestBucketList(IdList& bucket_list, IntCode bucket_code, int max_num);
 
     void MergeOneBucket(IntIndex bucket_id,
                         int max_bucket_size,
@@ -519,11 +522,12 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ConnectBucket2Bucket
   // connect bucket_id to neighbor_bucket_list
   for (IntIndex point_id : bucket_info.key_point_list) {
     PointNeighbor& point_update_neighbor = to_update_candidates[point_id];
-
+    /*
     // point has beed updated
     if (point_update_neighbor.size() > 0) {
       continue;
     }
+    */
     
     const PointType& point_vec = GetPoint(point_id);
     
@@ -620,10 +624,35 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveSea
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::GetNearestBucketList(
+    IdList& bucket_list, IntCode bucket_code, int max_num) {
+
+  bucket_list.clear();
+  int code_length = encoder_ptr_->code_length();
+  // use 1, 11 and 101 as mask
+  for (int dist = 0, init_mask = 1; dist < 3; dist++, init_mask += 2) {
+    int mask = init_mask;
+    for (int i = 0; i < code_length-dist; i++) {
+      IntCode neighbor_bucket_code = bucket_code ^ mask;
+      mask <<= 1;
+
+      BucketCode2BucketIdMap::const_iterator neighbor_bucket_iter = bucket_code2id_.find(neighbor_bucket_code);
+      if (neighbor_bucket_iter != bucket_code2id_.end()) {
+        bucket_list.push_back(neighbor_bucket_iter->second);
+      }
+
+      if (bucket_list.size() >= max_num) {
+        return;
+      }
+    }
+  }
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveHashing() {
 
   // encode
-  std::vector<IntCode> point_code_list(PointSize());
+  CodeList point_code_list(PointSize());
   #pragma omp parallel for schedule(static)
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
     IntCode point_code = encoder_ptr_->Encode(GetPoint(point_id));
@@ -730,17 +759,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildBucketsKnnGraph
   #pragma omp parallel for schedule(static)
   for (IntIndex bucket_id = 0; bucket_id < BucketSize(); bucket_id++) {
     BucketInfo& bucket_info = all_bucket_info_[bucket_id];
-    IntCode bucket_code = bucket_info.code; 
-    int mask = 1;
-    for (int i = 0; i < code_length; i++) {
-      IntCode neighbor_bucket_code = bucket_code ^ mask;
-      mask <<= 1;
-
-      BucketCode2BucketIdMap::const_iterator neighbor_bucket_iter = bucket_code2id_.find(neighbor_bucket_code);
-      if (neighbor_bucket_iter != bucket_code2id_.end()) {
-        bucket_info.knn_list.push_back(neighbor_bucket_iter->second);
-      }
-    }
+    GetNearestBucketList(bucket_info.knn_list, bucket_info.code, code_length);
   }
 }
 
@@ -823,6 +842,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::FindBucketKeyPoints(
         point_pass_flag[neighbor_id] = 1;
       }
     }
+    std::random_shuffle(key_point_list.begin(), key_point_list.end());
   }
 }
 
@@ -875,16 +895,17 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
 
   IntCode bucket_code = encoder_ptr_->Encode(query);
 
-  // if bucket not exist, use 1-distance bucket 
+  // if bucket not exist, use nearest bucket 
   IntIndex bucket_id = 0;
-  int mask = 1;
-  for (int i = 0; i <= encoder_ptr_->code_length(); i++) {
-    if (bucket_code2id_.find(bucket_code) != bucket_code2id_.end()) {
-      bucket_id = bucket_code2id_[bucket_code];
-      break;
+  if (bucket_code2id_.find(bucket_code) != bucket_code2id_.end()) {
+    bucket_id = bucket_code2id_[bucket_code];
+  }
+  else {
+    IdList bucket_list;
+    GetNearestBucketList(bucket_list, bucket_code, 1);
+    if (!bucket_list.empty()) {
+      bucket_id = bucket_list[0];
     }
-    bucket_code ^= mask;
-    mask <<= 1;
   }
 
   // bucket may be merged
@@ -892,7 +913,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
     bucket_id = merged_bucket_map_[bucket_id];
   }
 
-  // search from start points 
+  // search from start points
   DynamicBitset visited_point_flag(PointSize(), 0);
   const IdList& key_list = all_bucket_info_[bucket_id].key_point_list;
   IdList start_list(key_list.begin(), key_list.end());
