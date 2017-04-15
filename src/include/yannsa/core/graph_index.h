@@ -140,6 +140,8 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     void Init(const util::GraphIndexParameter& index_param,
               util::BinaryEncoderPtr<PointType>& encoder_ptr); 
 
+    void RandomInit(); 
+
     inline const PointType& GetPoint(IntIndex point_id) {
       return (*this->dataset_ptr_)[point_id];
     }
@@ -275,6 +277,26 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Save(
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::RandomInit() {
+  size_t max_point_id = PointSize();
+  util::IntRandomGenerator int_rand(0, max_point_id-1);
+  #pragma omp parallel for schedule(static)
+  for (IntIndex point_id = 0; point_id < max_point_id; point_id++) {
+    IdSet neighbor_set;
+    size_t random_neighbor_size = std::min(static_cast<size_t>(point_neighbor_num_), max_point_id-1);
+    while (neighbor_set.size() < random_neighbor_size) {
+      IntIndex neighbor_id = int_rand.Random();
+      if (neighbor_id == point_id || neighbor_set.find(neighbor_id) != neighbor_set.end()) {
+        continue;
+      }
+      neighbor_set.insert(neighbor_id);
+      DistanceType dist = distance_func_(GetPoint(neighbor_id), GetPoint(point_id));
+      all_point_info_[point_id].knn.insert_array(PointDistancePairItem(neighbor_id, dist, true));
+    }
+  }
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
     const util::GraphIndexParameter& index_param,
     util::BinaryEncoderPtr<PointType>& encoder_ptr) { 
@@ -287,9 +309,11 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
 
   Init(index_param, encoder_ptr);
 
+  /*
   // encode and init bukcet
   util::Log("before hashing");
   LocalitySensitiveHashing();
+  */
   /*
   std::cout << "bucket size: " << BucketSize() << std::endl;
   for (int i = 0; i < BucketSize(); i++) {
@@ -299,6 +323,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   */
 
   // construct bucket knn graph
+  /*
   util::Log("before bucket knn");
   BuildBucketsKnnGraph();
 
@@ -324,10 +349,14 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
     std::cout << "refine update: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
   }
   util::Log("end local refine");
+  */
 
+  RandomInit();
   InitPointNeighborInfo(true);
+  /*
   util::Log("before search");
   LocalitySensitiveSearch();
+  */
 
   util::Log("before global refine");
   for (int loop = 0; loop < index_param.global_refine_iter_num; loop++) {
