@@ -290,11 +290,13 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   // encode and init bukcet
   util::Log("before hashing");
   LocalitySensitiveHashing();
+  /*
   std::cout << "bucket size: " << BucketSize() << std::endl;
   for (int i = 0; i < BucketSize(); i++) {
     std::cout << all_bucket_info_[i].point_list.size() << " ";
   }
   std::cout << std::endl;
+  */
 
   // construct bucket knn graph
   util::Log("before bucket knn");
@@ -426,6 +428,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointNeighborI
   }
 }
 
+// LocalJoin is proposed by NNDescent(KGraph)
+// Many thanks
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 int GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalJoin(
     bool is_global) {
@@ -943,27 +947,42 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
     }
   }
 
+  DynamicBitset pass_point_flag(PointSize(), 0);
+  size_t start_index = 0; 
   while (true) {
     IdList next_point_list;
-    for (auto result_iter = result_candidates.begin();
-              result_iter != result_candidates.end(); result_iter++) {
-      PointNeighbor& knn = all_point_info_[result_iter->id].knn;
-      int effect_size = knn.effect_size(point_neighbor_num_);
-      for (int i = 0; i < effect_size; i++) {
-        if (!visited_point_flag[knn[i].id]) {
-          next_point_list.push_back(knn[i].id);
+    size_t i, count = 0;
+    for (i = start_index; i < result_candidates.size(); i++) {
+      IntIndex point_id = result_candidates[i].id;
+      if (pass_point_flag[point_id]) {
+        continue;
+      }
+      pass_point_flag[point_id] = 1;
+      PointNeighbor& knn = all_point_info_[point_id].knn;
+      size_t effect_size = knn.effect_size(point_neighbor_num_);
+      for (size_t j = 0; j < effect_size; j++) {
+        if (!visited_point_flag[knn[j].id]) {
+          next_point_list.push_back(knn[j].id);
         }
       }
-    }
-    if (next_point_list.empty()) {
-      break;
+      count++;
+      if (count > search_param.k) {
+        break;
+      }
     }
 
+    start_index = i;
+
     for (auto point : next_point_list) {
+      visited_point_flag[point] = 1;
       DistanceType dist = distance_func_(GetPoint(point), query);
       PointDistancePairItem point_dist(point, dist);
-      result_candidates.insert_array(point_dist);
-      visited_point_flag[point] = 1;
+      size_t update_pos = result_candidates.insert_array(point_dist);
+      start_index = std::min(update_pos, start_index);
+    }
+
+    if (start_index >= result_candidates.size()) {
+      break;
     }
   }
   
