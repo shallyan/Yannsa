@@ -168,11 +168,9 @@ int LoadBinaryData(string file_path, DatasetPtr<float>& dataset_ptr) {
 }
 
 int main(int argc, char** argv) {
-  if (argc < 11) {
+  if (argc != 7) {
     cout << "binary -data_path -graph_path -hash_length -point_neighbor_num "
-         << "-max_point_neighbor_num -min_bucket_size "
-         << "-max_bucket_size -local_refine_iter_num -global_refine_iter_num -search_point_neighbor_num "
-         << "-search_start_point_num"
+         << "-max_point_neighbor_num -refine_iter_num"
          << endl;
     return 0;
   }
@@ -184,12 +182,7 @@ int main(int argc, char** argv) {
   util::GraphIndexParameter param;
   param.point_neighbor_num = atoi(argv[4]);
   param.max_point_neighbor_num = atoi(argv[5]);
-  param.min_bucket_size = atoi(argv[6]);
-  param.max_bucket_size = atoi(argv[7]);
-  param.local_refine_iter_num = atoi(argv[8]);
-  param.global_refine_iter_num = atoi(argv[9]);
-  param.search_point_neighbor_num = atoi(argv[10]);
-  param.search_start_point_num = atoi(argv[11]);
+  param.refine_iter_num = atoi(argv[6]);
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   //int point_dim = LoadBinaryData(data_path, dataset_ptr);

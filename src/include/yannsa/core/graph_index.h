@@ -71,7 +71,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
       // status
       bool is_updated;
-      bool is_join;
 
       // for local join
       IdList old_list;
@@ -172,11 +171,11 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
 
     int UpdatePointKnn(IntIndex point1, IntIndex point2, DistanceType dist);
-    int UpdatePointKnn(IntIndex point1, IntIndex point2, bool join_same_bucket);
+    int UpdatePointKnn(IntIndex point1, IntIndex point2);
 
-    void InitPointNeighborInfo(bool is_global);
+    void InitPointNeighborInfo();
     void UpdatePointNeighborInfo(); 
-    int LocalJoin(bool is_global);
+    int LocalJoin();
 
   private:
     int point_neighbor_num_;
@@ -212,6 +211,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Init(
 
   max_point_neighbor_num_ = std::max(index_param.max_point_neighbor_num,
                                      point_neighbor_num_);
+  max_point_neighbor_num_ = std::max(max_point_neighbor_num_, 
+                                     encoder_ptr_->code_length());
 
   IntIndex max_point_id = this->dataset_ptr_->size();
   all_point_info_ = std::vector<PointInfo>(max_point_id, PointInfo(max_point_neighbor_num_));
@@ -257,7 +258,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Save(
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalitySensitiveInit() {
   size_t max_point_id = PointSize();
-  //util::IntRandomGenerator int_rand(0, max_point_id-1);
   #pragma omp parallel for schedule(static)
   for (IntIndex point_id = 0; point_id < max_point_id; point_id++) {
     IntIndex bucket_id = all_point_info_[point_id].bucket_id;
@@ -304,15 +304,15 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
   util::Log("before locality init");
   LocalitySensitiveInit();
 
-  InitPointNeighborInfo(true);
-  util::Log("before global refine");
-  for (int loop = 0; loop < index_param.global_refine_iter_num; loop++) {
+  InitPointNeighborInfo();
+  util::Log("before refine");
+  for (int loop = 0; loop < index_param.refine_iter_num; loop++) {
     clock_t s, e, e1;
     s = clock();
     UpdatePointNeighborInfo();
     e = clock();
     std::cout << "refine init: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
-    LocalJoin(true);
+    LocalJoin();
     e1 = clock();
     std::cout << "refine update: " << (e1-e)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
   }
@@ -324,19 +324,11 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::InitPointNeighborInfo(
-    bool is_global) {
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::InitPointNeighborInfo() {
 
   #pragma omp parallel for schedule(static)
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
     PointInfo& point_info = all_point_info_[point_id];
-    if (is_global) {
-      point_info.is_join = true;
-    }
-    else if (!point_info.is_join) {
-      continue;
-    }
-
     point_info.is_updated = false;
 
     //point_info.effect_size = std::min(static_cast<size_t>(point_neighbor_num_), point_info.knn.size());
@@ -357,10 +349,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointNeighborI
   #pragma omp parallel for schedule(static)
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
     PointInfo& point_info = all_point_info_[point_id];
-    if (!point_info.is_join) {
-      continue;
-    }
-    
     IntIndex effect_size = point_info.effect_size;
     auto& point_neighbor = point_info.knn;
     if (point_info.is_updated) {
@@ -384,9 +372,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointNeighborI
   #pragma omp parallel for schedule(static)
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
     PointInfo& point_info = all_point_info_[point_id];
-    if (!point_info.is_join) {
-      continue;
-    }
 
     auto& point_neighbor = point_info.knn;
     IntIndex effect_size = point_neighbor.effect_size(point_info.effect_size);
@@ -407,8 +392,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointNeighborI
 // LocalJoin is proposed by NNDescent(KGraph)
 // Many thanks
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
-int GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalJoin(
-    bool is_global) {
+int GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalJoin() {
 
   int sample_num = 100;
   int update_count = 0;
@@ -442,12 +426,12 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalJoin(
 
       for (size_t j = i+1; j < new_list.size(); j++) {
         IntIndex p2 = new_list[j];
-        cur_update_count += UpdatePointKnn(p1, p2, !is_global);
+        cur_update_count += UpdatePointKnn(p1, p2);
       }
 
       for (size_t j = 0; j < old_list.size(); j++) {
         IntIndex p2 = old_list[j];
-        cur_update_count += UpdatePointKnn(p1, p2, !is_global);
+        cur_update_count += UpdatePointKnn(p1, p2);
       }
     }
     update_count += cur_update_count;
@@ -458,17 +442,11 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalJoin(
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 int GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointKnn(
-    IntIndex point1, IntIndex point2, bool join_same_bucket) {
+    IntIndex point1, IntIndex point2) {
 
   if (point1 == point2) {
     return 0;
   }
-
-  /*
-  if (!join_same_bucket && (all_point_info_[point1].bucket_id == all_point_info_[point2].bucket_id)) {
-    return 0;
-  }
-  */
 
   DistanceType dist = distance_func_(GetPoint(point1), GetPoint(point2));
   return UpdatePointKnn(point1, point2, dist);
@@ -659,15 +637,19 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
     }
   }
 
-  // search from start points
+  // search from bucket points
   DynamicBitset visited_point_flag(PointSize(), 0);
-  const IdList& key_list = all_bucket_info_[bucket_id].key_point_list;
-  IdList start_list(key_list.begin(), key_list.end());
+
+  const BucketInfo& bucket_info = all_bucket_info_[bucket_id];
+  const IdList& bucket_point_list = bucket_info.point_list;
+  size_t bucket_point_effect_size = std::min(bucket_point_list.size(), 
+                                             static_cast<size_t>(search_param.search_start_point_num));
+  IdList start_list(bucket_point_list.begin(), bucket_point_list.begin()+bucket_point_effect_size);
   if (start_list.size() < search_param.search_start_point_num) {
-    const IdList& knn_bucket = all_bucket_info_[bucket_id].knn_list;
-    for (auto neighbor_bucket : knn_bucket) {
-      const IdList& neighbor_bucket_key = all_bucket_info_[neighbor_bucket].key_point_list;
-      start_list.insert(start_list.end(), neighbor_bucket_key.begin(), neighbor_bucket_key.end());
+    const IdList& bucket_knn = bucket_info.knn_list;
+    for (auto neighbor_bucket : bucket_knn) {
+      const IdList& neighbor_bucket_point_list = all_bucket_info_[neighbor_bucket].point_list;
+      start_list.insert(start_list.end(), neighbor_bucket_point_list.begin(), neighbor_bucket_point_list.end());
       if (start_list.size() >= search_param.search_start_point_num) {
         break;
       }
