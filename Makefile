@@ -8,7 +8,7 @@ THIRD_PARTY_INC=third_party/
 EXAMPLE_FLAGS=$(CXX_FLAGS)
 EXAMPLE_ROOT=example
 
-knn_graph_test : $(EXAMPLE_ROOT)/knn_graph_test.cc
+knn_graph : $(EXAMPLE_ROOT)/knn_graph.cc
 	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
 
 knn_search: $(EXAMPLE_ROOT)/knn_search.cc

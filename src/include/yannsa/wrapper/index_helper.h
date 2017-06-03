@@ -27,6 +27,13 @@ using DotBruteForceIndex = core::BruteForceIndex<PointVector<CoordinateType>,
 template <typename CoordinateType>
 using DotBruteForceIndexPtr = std::shared_ptr<DotBruteForceIndex<CoordinateType> >;
 
+template <typename CoordinateType>
+using EuclideanGraphIndex = core::GraphIndex<PointVector<CoordinateType>, 
+                                             EuclideanDistance<CoordinateType>, 
+                                             CoordinateType>;
+template <typename CoordinateType>
+using EuclideanGraphIndexPtr = std::shared_ptr<EuclideanGraphIndex<CoordinateType> >;
+
 } // namespace wrapper 
 } // namespace yannsa
 

@@ -32,6 +32,5 @@ for point, real_neighbor in real_graph.iteritems():
   result_neighbor = result_graph[point]
   cur_hit = len(result_neighbor & real_neighbor)
   hit += cur_hit
-  print point, cur_hit / 10.0
 
 print 'Average precision: ', hit * 1.0 / (len(real_graph) * k)
