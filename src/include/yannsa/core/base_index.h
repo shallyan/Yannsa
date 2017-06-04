@@ -3,7 +3,7 @@
 
 #include "yannsa/base/type_definition.h"
 #include "yannsa/util/container.h"
-#include "yannsa/util/heap.h"
+#include "yannsa/util/sorted_array.h"
 #include "yannsa/util/parameter.h"
 #include <vector>
 #include <memory>

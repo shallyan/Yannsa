@@ -3,7 +3,7 @@
 
 #include "yannsa/base/type_definition.h"
 #include "yannsa/core/base_index.h"
-#include "yannsa/util/heap.h"
+#include "yannsa/util/sorted_array.h"
 #include "yannsa/util/parameter.h"
 #include <vector>
 #include <memory>
@@ -29,7 +29,7 @@ class BruteForceIndex : public BaseIndex<PointType, DistanceFuncType, DistanceTy
       search_result.clear();
 
       DistanceFuncType distance_func;
-      util::Heap<PointDistancePairItem> k_candidates(k); 
+      util::SortedArray<PointDistancePairItem> k_candidates(k); 
 
       for (IntIndex i = 0; i < this->dataset_ptr_->size(); i++) { 
         DistanceType dist = distance_func((*this->dataset_ptr_)[i], query); 

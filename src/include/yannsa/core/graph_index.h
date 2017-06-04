@@ -3,10 +3,8 @@
 
 #include "yannsa/base/type_definition.h"
 #include "yannsa/base/error_definition.h"
-#include "yannsa/util/heap.h"
+#include "yannsa/util/sorted_array.h"
 #include "yannsa/util/parameter.h"
-#include "yannsa/util/binary_encoder.h"
-#include "yannsa/util/point_pair.h"
 #include "yannsa/util/logging.h"
 #include "yannsa/util/lock.h"
 #include "yannsa/util/random_generator.h"
@@ -36,15 +34,17 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
   private:
     // point
     typedef PointDistancePair<IntIndex, DistanceType> PointDistancePairItem; 
-    typedef util::Heap<PointDistancePairItem> PointNeighbor;
+    typedef util::SortedArray<PointDistancePairItem> PointNeighbor;
 
   private:
+    struct PointIndex {
+      IdList knn;
+      
+    };
+
     struct PointInfo {
       // graph
       PointNeighbor knn;
-
-      // bucket info
-      IntIndex bucket_id;
 
       // status
       bool is_updated;
@@ -103,6 +103,12 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     void Clear(); 
 
     void Build(const util::GraphIndexParameter& index_param); 
+
+    void BuildKnnGraph(const util::GraphIndexParameter& index_param); 
+
+    void Prune();
+
+    void Reverse();
 
     void SearchKnn(const PointType& query,
                    const util::GraphSearchParameter& search_param,
@@ -203,6 +209,20 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
     throw IndexBuildError("Graph index has already been built!");
   }
 
+  // build basic knn graph
+  BuildKnnGraph(index_param);
+
+  // build extend knn graph
+  
+  this->have_built_ = true;
+
+  util::Log("end build");
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildKnnGraph(
+    const util::GraphIndexParameter& index_param) {
+
   Init(index_param);
 
   util::Log("before init");
@@ -210,24 +230,35 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
 
   util::Log("before refine");
   for (int loop = 0; loop < index_param.refine_iter_num; loop++) {
-    clock_t s, e, e1;
-    s = clock();
+    util::Log(std::to_string(loop) + "iteration ");
     UpdatePointNeighborInfo();
-    e = clock();
-    std::cout << "refine init: " << (e-s)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
     LocalJoin();
-    e1 = clock();
-    std::cout << "refine update: " << (e1-e)*1.0 / CLOCKS_PER_SEC << "s" << std::endl;
   }
 
-  // build
-  this->have_built_ = true;
+  Prune();
+}
 
-  util::Log("end build");
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune() {
+
+  #pragma omp parallel for schedule(static)
+  for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
+    PointNeighbor& point_neighbor = all_point_info_[point_id].knn;
+    point_neighbor.remax_size(point_neighbor_num_);
+  }
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::Reverse() {
+
+  for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
+    PointNeighbor& point_neighbor = all_point_info_[point_id].knn;
+  }
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::InitPointNeighborInfo() {
+
   size_t max_point_id = PointSize();
   util::IntRandomGenerator int_rand(0, max_point_id-1);
   #pragma omp parallel for schedule(static)
@@ -269,14 +300,11 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointNeighborI
       for (IntIndex i = 0; i < point_neighbor.size(); i++) {
         if (point_neighbor[i].flag) {
           new_point_count++;
-          if (new_point_count >= point_neighbor_num_/2) {
+          if (new_point_count >= point_neighbor_num_) {
             effect_size = i+1;
             break;
           }
         }
-      }
-      if (effect_size < point_neighbor_num_) {
-        effect_size = std::min(point_neighbor.size(), static_cast<size_t>(point_neighbor_num_));
       }
     }
     point_info.reset(effect_size);
@@ -393,91 +421,34 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
     throw IndexBuildError("Graph index hasn't been built!");
   }
 
-  /*
+  // random init
+  IdList start_list;
+
   DynamicBitset visited_point_flag(PointSize(), 0);
 
-  const BucketInfo& bucket_info = all_bucket_info_[bucket_id];
-  const IdList& bucket_point_list = bucket_info.point_list;
-  size_t bucket_point_effect_size = std::min(bucket_point_list.size(), 
-                                             static_cast<size_t>(search_param.search_start_point_num));
-  IdList start_list(bucket_point_list.begin(), bucket_point_list.begin()+bucket_point_effect_size);
-  if (start_list.size() < search_param.search_start_point_num) {
-    const IdList& bucket_knn = bucket_info.knn_list;
-    for (auto neighbor_bucket : bucket_knn) {
-      const IdList& neighbor_bucket_point_list = all_bucket_info_[neighbor_bucket].point_list;
-      start_list.insert(start_list.end(), neighbor_bucket_point_list.begin(), neighbor_bucket_point_list.end());
-      if (start_list.size() >= search_param.search_start_point_num) {
-        break;
-      }
-    }
-  }
-  if (start_list.size() > search_param.search_start_point_num) {
-    start_list.resize(search_param.search_start_point_num);
-  }
-  
   PointNeighbor result_candidates(search_param.search_k);
   for (auto start_point_id : start_list) {
+    visited_point_flag[start_point_id] = 1;
     DistanceType dist = distance_func_(GetPoint(start_point_id), query);
-    result_candidates.insert_array(PointDistancePairItem(start_point_id, dist));
+    result_candidates.insert_array(PointDistancePairItem(start_point_id, dist, true));
   }
 
-  DynamicBitset pass_point_flag(PointSize(), 0);
-  size_t start_index = 0; 
-  while (true) {
-    IdList next_point_list;
-    size_t i, count = 0;
-    for (i = start_index; i < result_candidates.size(); i++) {
-      IntIndex point_id = result_candidates[i].id;
-      if (pass_point_flag[point_id]) {
-        continue;
-      }
-      pass_point_flag[point_id] = 1;
-      PointNeighbor& knn = all_point_info_[point_id].knn;
-      size_t effect_size = knn.effect_size(point_neighbor_num_);
-      for (size_t j = 0; j < effect_size; j++) {
-        if (!visited_point_flag[knn[j].id]) {
-          next_point_list.push_back(knn[j].id);
-        }
-      }
-      count++;
-      if (count > search_param.k) {
-        break;
-      }
+  size_t start_index = 0;
+  while (start_index < search_param.search_k) {
+    auto& current_point = result_candidates[start_index];
+    if (current_point.flag == false) {
+      start_index++;
+      continue;
     }
 
-    start_index = i;
-
-    for (auto point : next_point_list) {
-      visited_point_flag[point] = 1;
-      DistanceType dist = distance_func_(GetPoint(point), query);
-      PointDistancePairItem point_dist(point, dist);
-      size_t update_pos = result_candidates.insert_array(point_dist);
-      start_index = std::min(update_pos, start_index);
-    }
-
-    if (start_index >= result_candidates.size()) {
-      break;
-    }
+    // has deal with this point's neighbor
+    current_point.flag = false;
   }
-  */
   
-  /*
-  PointNeighbor result_candidates(search_param.k);
-  for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
-    size_t indegree = all_point_info_[point_id].in_degree;
-    if (indegree < 3) {
-      DistanceType dist = distance_func_(GetPoint(point_id), query);
-      PointDistancePairItem point_dist(point_id, dist);
-      size_t update_pos = result_candidates.insert_array(point_dist);
-    }
-  }
-  */
-  /*
   search_result.clear();
   for (int i = 0; i < result_candidates.effect_size(search_param.k); i++) {
     search_result.push_back(this->dataset_ptr_->GetKeyById(result_candidates[i].id));
   }
-  */
 }
 
 } // namespace core 

@@ -13,7 +13,6 @@ struct GraphIndexParameter {
 struct GraphSearchParameter {
   int k;
   int search_k;
-  int search_start_point_num;
 };
 
 } // namespace util
