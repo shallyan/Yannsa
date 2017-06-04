@@ -53,7 +53,6 @@ class Container {
     }
 
   private:
-    // 2-layer storage may be used to rearrange dataset for cache efficiency
     std::unordered_map<std::string, IntIndex> key2id_;
     std::vector<std::string> id2key_;
     std::vector<PointType> id2point_;

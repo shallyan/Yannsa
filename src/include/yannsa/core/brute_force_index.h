@@ -33,10 +33,9 @@ class BruteForceIndex : public BaseIndex<PointType, DistanceFuncType, DistanceTy
 
       for (IntIndex i = 0; i < this->dataset_ptr_->size(); i++) { 
         DistanceType dist = distance_func((*this->dataset_ptr_)[i], query); 
-        k_candidates.insert_heap(PointDistancePairItem(i, dist));
+        k_candidates.insert(PointDistancePairItem(i, dist));
       } 
 
-      k_candidates.sort();
       auto candidate_iter = k_candidates.begin();
       for (; candidate_iter != k_candidates.end(); candidate_iter++) {
         search_result.push_back(this->dataset_ptr_->GetKeyById(candidate_iter->id));

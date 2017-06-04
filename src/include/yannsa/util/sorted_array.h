@@ -4,7 +4,6 @@
 #include <vector>
 #include <algorithm>
 #include "yannsa/util/lock.h" 
-#include <iostream>
 
 namespace yannsa {
 namespace util {
@@ -68,12 +67,26 @@ class SortedArray {
       return sorted_array_.end();
     }
 
-    size_t parallel_insert_array(const PointType& new_point) {
-      ScopedLock lock(lock_);
-      return insert_array(new_point);
+    void unique() {
+      std::sort(sorted_array_.begin(), sorted_array_.end());
+      sorted_array_.resize(std::unique(sorted_array_.begin(), sorted_array_.end()) - sorted_array_.begin());
     }
 
-    size_t insert_array(const PointType& new_point) {
+    void parallel_push(const PointType& new_point) {
+      ScopedLock lock(lock_);
+      return push(new_point);
+    }
+
+    void push(const PointType& new_point) {
+      sorted_array_.push_back(new_point);
+    }
+
+    size_t parallel_insert(const PointType& new_point) {
+      ScopedLock lock(lock_);
+      return insert(new_point);
+    }
+
+    size_t insert(const PointType& new_point) {
       // find insert postion
       size_t pos = size();
       while (pos >= 1 && new_point < sorted_array_[pos-1]) {

@@ -65,52 +65,42 @@ int LoadEmbeddingData(const string& file_path,
   return vec_dim;
 }
 int main(int argc, char** argv) {
-  if (argc != 12) {
-    cout << "binary -data_path -graph_path -hash_length -point_neighbor_num "
-         << "-max_point_neighbor_num -refine_iter_num "
-         << "-query_path -k -search_k -search_start_point_num -search_result_path"
+  if (argc != 7) {
+    cout << "binary -data_path -graph_path "
+         << "-query_path -search_result_path "
+         << "-k -search_k"
          << endl;
     return 0;
   }
   string data_path = argv[1];
   string graph_path = argv[2];
-  int hash_length = atoi(argv[3]);
-
-  util::GraphIndexParameter param;
-  param.point_neighbor_num = atoi(argv[4]);
-  param.max_point_neighbor_num = atoi(argv[5]);
-  param.refine_iter_num = atoi(argv[6]);
-
-  string query_path = argv[7];
+  string query_path = argv[3];
+  string search_result_path = argv[4];
 
   util::GraphSearchParameter search_param;
-  search_param.k = atoi(argv[8]);
-  search_param.search_k = atoi(argv[9]);
-  search_param.search_start_point_num = atoi(argv[10]);
+  search_param.k = atoi(argv[5]);
+  search_param.search_k = atoi(argv[6]);
 
-  string search_result_path = argv[11];
-   
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   int point_dim = LoadEmbeddingData(data_path, dataset_ptr);
   DatasetPtr<float> query_ptr(new Dataset<float>());
   LoadEmbeddingData(query_path, query_ptr);
   
-  DotGraphIndexPtr<float> graph_index_ptr(new DotGraphIndex<float>(dataset_ptr));
-  BinaryEncoderPtr<PointVector<float> > 
-      binary_encoder_ptr(new RandomBinaryEncoder<PointVector<float>, float>(point_dim, hash_length));
+  EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
 
-  graph_index_ptr->Build(param, binary_encoder_ptr);
-  graph_index_ptr->Save(graph_path);
+  graph_index_ptr->LoadIndex(graph_path);
 
   vector<vector<string> > search_result(query_ptr->size());
 
   util::Log("before search");
-  #pragma omp parallel for schedule(static)
+  int num_cnt = 0;
+  //#pragma omp parallel for schedule(static)
   for (int i = 0; i < query_ptr->size(); i++) {
-    graph_index_ptr->SearchKnn((*query_ptr)[i], search_param, search_result[i]);
+    num_cnt += graph_index_ptr->SearchKnn((*query_ptr)[i], search_param, search_result[i]);
   }
   util::Log("end search");
 
+  cout << "calculate data num: " << num_cnt << endl;
   ofstream resulte_file(search_result_path);
 
   for (int i = 0; i < query_ptr->size(); i++) {

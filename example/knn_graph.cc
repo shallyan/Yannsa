@@ -83,7 +83,7 @@ int main(int argc, char** argv) {
   EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
 
   graph_index_ptr->Build(param);
-  graph_index_ptr->Save(graph_path);
+  graph_index_ptr->SaveIndex(graph_path);
 
   return 0;
 }

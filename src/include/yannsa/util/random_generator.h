@@ -2,6 +2,8 @@
 #define YANNSA_RANDOM_H
 
 #include <random>
+#include <algorithm>
+#include "yannsa/base/type_definition.h"
 
 namespace yannsa {
 namespace util {
