@@ -80,6 +80,7 @@ int main(int argc, char** argv) {
   util::GraphSearchParameter search_param;
   search_param.k = atoi(argv[5]);
   search_param.search_k = atoi(argv[6]);
+  search_param.start_neighbor_num = 10;
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   int point_dim = LoadEmbeddingData(data_path, dataset_ptr);

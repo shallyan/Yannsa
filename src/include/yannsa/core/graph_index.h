@@ -219,12 +219,17 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LoadIndex(
 
   Clear();
 
+  size_t total_cnt = 0;
+  size_t max_cnt = 0;
   std::ifstream load_file(file_path);
   std::string buff;
   while (std::getline(load_file, buff)) {
     std::stringstream point_info_stream(buff);
     size_t neighbor_num;
     point_info_stream >> neighbor_num;
+
+    max_cnt = std::max(max_cnt, neighbor_num);
+    total_cnt += neighbor_num;
 
     PointIndex point_index(neighbor_num);
     IntIndex point_id;
@@ -235,6 +240,9 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LoadIndex(
     }
     all_point_index_.push_back(point_index);
   }
+
+  std::cout << "Max knn: " << max_cnt << std::endl;
+  std::cout << "Average knn: " << total_cnt*1.0/PointSize() << std::endl;
 
   // shuffle data
   for (IntIndex i = 0; i < PointSize(); i++) {
@@ -527,7 +535,15 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
     }
 
     PointNeighbor& knn = all_point_index_[current_point.id].knn;
-    for (size_t i = 0; i < knn.size(); i++) {
+    size_t first_range = current_point.m;
+    size_t last_range = current_point.m + search_param.start_neighbor_num; 
+    if (last_range >= knn.size()) {
+      last_range = knn.size();
+      // has deal with this point's neighbor
+      current_point.flag = false;
+    }
+    current_point.m = last_range;
+    for (size_t i = first_range; i < last_range; i++) {
       if (visited_point_flag[knn[i].id]) {
         continue;
       }
@@ -540,8 +556,6 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
       }
     }
 
-    // has deal with this point's neighbor
-    current_point.flag = false;
   }
   
   search_result.clear();
