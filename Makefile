@@ -8,10 +8,13 @@ THIRD_PARTY_INC=third_party/
 EXAMPLE_FLAGS=$(CXX_FLAGS)
 EXAMPLE_ROOT=example
 
-knn_graph : $(EXAMPLE_ROOT)/knn_graph.cc
+index : $(EXAMPLE_ROOT)/index.cc
 	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
 
-knn_search: $(EXAMPLE_ROOT)/knn_search.cc
+extend_index : $(EXAMPLE_ROOT)/extend_index.cc
+	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
+
+search: $(EXAMPLE_ROOT)/search.cc
 	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
 
 bruteforce : $(EXAMPLE_ROOT)/bruteforce.cc

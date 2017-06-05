@@ -33,8 +33,9 @@
 
 build_test/*
 yannsa_test
-knn_graph
-knn_search
+index
+extend_index
+search
 bruteforce
 tags
 

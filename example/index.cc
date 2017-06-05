@@ -1,17 +1,14 @@
 #include "yannsa/util/parameter.h"
 #include "yannsa/util/logging.h"
-#include "yannsa/wrapper/binary_encoder_imp.h"
 #include "yannsa/wrapper/index_helper.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <utility>
 #include <string>
-#include <vector>
 #include <cassert>
 #include <unordered_map>
 #include <algorithm>
-#include <omp.h>
 
 using namespace std;
 using namespace yannsa;
@@ -22,13 +19,8 @@ int LoadEmbeddingData(const string& file_path,
                       DatasetPtr<float>& dataset_ptr) { 
 
   ifstream in_file(file_path.c_str());
-  if (!in_file.is_open()) {
-    cout << "open file error" << endl;
-    exit(-1);
-  }
 
   string buff;
-
   //read word and dim number
   int vec_num = 0, vec_dim = 0;
   getline(in_file, buff);
@@ -51,7 +43,7 @@ int LoadEmbeddingData(const string& file_path,
     while (one_word_vec_stream >> value) { 
       point[dim_count++] = value;
     }
-    point.normalize();
+    //point.normalize();
 
     //check dim num
     assert(dim_count == vec_dim);
@@ -64,54 +56,30 @@ int LoadEmbeddingData(const string& file_path,
 
   return vec_dim;
 }
+
 int main(int argc, char** argv) {
-  if (argc != 7) {
-    cout << "binary -data_path -graph_path "
-         << "-query_path -search_result_path "
-         << "-k -search_k"
+  if (argc != 6) {
+    cout << "binary -data_path -index_path -point_neighbor_num "
+         << "-max_point_neighbor_num -refine_iter_num"
          << endl;
     return 0;
   }
   string data_path = argv[1];
-  string graph_path = argv[2];
-  string query_path = argv[3];
-  string search_result_path = argv[4];
+  string index_path = argv[2];
 
-  util::GraphSearchParameter search_param;
-  search_param.k = atoi(argv[5]);
-  search_param.search_k = atoi(argv[6]);
-  search_param.start_neighbor_num = 10;
+  util::GraphIndexParameter param;
+  param.point_neighbor_num = atoi(argv[3]);
+  param.max_point_neighbor_num = atoi(argv[4]);
+  param.refine_iter_num = atoi(argv[5]);
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   int point_dim = LoadEmbeddingData(data_path, dataset_ptr);
-  DatasetPtr<float> query_ptr(new Dataset<float>());
-  LoadEmbeddingData(query_path, query_ptr);
   
   EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
 
-  graph_index_ptr->LoadIndex(graph_path);
-
-  vector<vector<string> > search_result(query_ptr->size());
-
-  util::Log("before search");
-  int num_cnt = 0;
-  //#pragma omp parallel for schedule(static)
-  for (int i = 0; i < query_ptr->size(); i++) {
-    num_cnt += graph_index_ptr->SearchKnn((*query_ptr)[i], search_param, search_result[i]);
-  }
-  util::Log("end search");
-
-  cout << "calculate data num: " << num_cnt << endl;
-  ofstream resulte_file(search_result_path);
-
-  for (int i = 0; i < query_ptr->size(); i++) {
-    resulte_file << query_ptr->GetKeyById(i) << " ";
-    for (auto nn : search_result[i]) {
-      resulte_file << nn << " ";
-    }
-    resulte_file << endl;
-  }
-  resulte_file.close();
+  graph_index_ptr->Build(param);
+  graph_index_ptr->SaveKnnGraph(index_path + "_knn_graph");
+  graph_index_ptr->SaveIndex(index_path);
 
   return 0;
 }
