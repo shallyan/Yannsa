@@ -41,6 +41,8 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     struct PointIndex {
       PointNeighbor knn;
       IdList next;
+      // tmp
+      std::vector<DistanceType> next_dist;
 
       PointIndex(int point_neighbor_num) {
         knn = PointNeighbor(point_neighbor_num);
@@ -265,6 +267,9 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LoadIndex(
     for (size_t i = 0; i < next_num; i++) {
       point_info_stream >> next_id; 
       point_index.next.push_back(next_id);
+
+      // discard dist
+      point_info_stream >> dist; 
     }
 
     all_point_index_.push_back(point_index);
@@ -301,7 +306,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SaveIndex(
     IdList& next = all_point_index_[point_id].next;
     save_file << next.size() << " ";
     for (size_t i = 0; i < next.size(); i++) {
-      save_file << next[i] << " ";
+      save_file << next[i] << " "
+                << all_point_index_[point_id].next_dist[i] << " ";
     }
 
     save_file << std::endl;
@@ -343,23 +349,22 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildExtendIndex(
     const PointType& cur_point = GetPoint(point_id); 
     for (size_t i = 0; i < point_neighbor_num_; i++) {
       IdList search_result;
+      DistanceType dist = 0;
       const PointType& target_point = GetPoint(knn[i].id);
-      //for (int step = 5; step < 10; step++) {
-      int step = 4;
+      for (int step = 2; step <= 32; step *= 2) {
         PointType next_point = cur_point + step * (target_point - cur_point);
         search_result.clear();
         inSearchKnn(next_point, knn[i].id, extend_index_param, search_result);
-      /*
         // check this point
         IntIndex next_nn = search_result[0];
-        DistanceType dist = distance_func_(cur_point, GetPoint(next_nn));
-        if (dist >= knn[i].distance*1.5) {
+        dist = distance_func_(cur_point, GetPoint(next_nn));
+        if (dist >= knn[i].distance*2.0) {
           break;
         }
       }
-      */
 
       all_point_index_[point_id].next.push_back(search_result[0]);
+      all_point_index_[point_id].next_dist.push_back(dist);
     }
   }
 
@@ -620,6 +625,20 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::inSearchKnn(
   DistanceType dist = distance_func_(GetPoint(start_point_id), query);
   num_cnt++;
   result_candidates.insert(PointDistancePairItem(start_point_id, dist, true));
+
+  util::IntRandomGenerator int_rand(0, PointSize()-1);
+  size_t random_start = int_rand.Random();
+  for (size_t random_index = random_start; 
+              random_index < random_start + search_param.search_k; random_index++) {
+    IntIndex start_point_id = shuffle_point_id_list_[random_index % PointSize()];
+    if (visited_point_flag[start_point_id]) {
+      continue;
+    }
+    visited_point_flag[start_point_id] = 1;
+    DistanceType dist = distance_func_(GetPoint(start_point_id), query);
+    num_cnt++;
+    result_candidates.insert(PointDistancePairItem(start_point_id, dist, true));
+  }
 
   size_t start_index = 0;
   while (start_index < search_param.search_k) {

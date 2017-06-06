@@ -43,7 +43,7 @@ int LoadEmbeddingData(const string& file_path,
     while (one_word_vec_stream >> value) { 
       point[dim_count++] = value;
     }
-    //point.normalize();
+    point.normalize();
 
     //check dim num
     assert(dim_count == vec_dim);
@@ -59,7 +59,7 @@ int LoadEmbeddingData(const string& file_path,
 
 int main(int argc, char** argv) {
   if (argc != 5) {
-    cout << "binary -data_path -index_path -extend_index_path"
+    cout << "binary -data_path -index_path -extend_index_path "
          << "-search_k"
          << endl;
     return 0;
