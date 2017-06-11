@@ -58,9 +58,9 @@ int LoadEmbeddingData(const string& file_path,
 }
 
 int main(int argc, char** argv) {
-  if (argc != 5) {
+  if (argc != 6) {
     cout << "binary -data_path -index_path -extend_index_path "
-         << "-search_k"
+         << "-k -search_k"
          << endl;
     return 0;
   }
@@ -69,8 +69,8 @@ int main(int argc, char** argv) {
   string extend_index_path = argv[3];
 
   util::GraphSearchParameter extend_index_param;
-  extend_index_param.k = 1;
-  extend_index_param.search_k = atoi(argv[4]);
+  extend_index_param.k = atoi(argv[4]);
+  extend_index_param.search_k = atoi(argv[5]);
   extend_index_param.start_neighbor_num = 10;
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());

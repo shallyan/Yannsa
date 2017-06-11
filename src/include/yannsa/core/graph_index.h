@@ -20,6 +20,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <cstdlib>
 
 namespace yannsa {
 namespace core {
@@ -284,7 +285,13 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LoadIndex(
   for (IntIndex i = 0; i < PointSize(); i++) {
     shuffle_point_id_list_.push_back(i);
   }
-  std::random_shuffle(shuffle_point_id_list_.begin(), shuffle_point_id_list_.end());
+
+  // fix shuffle
+  std::srand(1);
+  for (int i = 1; i < PointSize(); i++) {
+    std::swap(shuffle_point_id_list_[i], shuffle_point_id_list_[std::rand() % (i+1)]);
+  }
+  //std::random_shuffle(shuffle_point_id_list_.begin(), shuffle_point_id_list_.end());
 
   this->have_built_ = true;
 }
@@ -351,20 +358,27 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildExtendIndex(
       IdList search_result;
       DistanceType dist = 0;
       const PointType& target_point = GetPoint(knn[i].id);
-      for (int step = 2; step <= 32; step *= 2) {
+      //for (int step = 2; step <= 32; step *= 2) {
+        int step = 2;
         PointType next_point = cur_point + step * (target_point - cur_point);
         search_result.clear();
         inSearchKnn(next_point, knn[i].id, extend_index_param, search_result);
         // check this point
-        IntIndex next_nn = search_result[0];
-        dist = distance_func_(cur_point, GetPoint(next_nn));
-        if (dist >= knn[i].distance*2.0) {
+        //IntIndex next_nn = search_result[0];
+        //dist = distance_func_(cur_point, GetPoint(next_nn));
+        //if (dist >= knn[i].distance*2.0) {
+        //  break;
+        //}
+      //}
+
+      for (IntIndex next_candidate : search_result) {
+        if (next_candidate != knn[i].id) {
+          DistanceType dist = distance_func_(cur_point, GetPoint(next_candidate));
+          all_point_index_[point_id].next.push_back(next_candidate);
+          all_point_index_[point_id].next_dist.push_back(dist);
           break;
         }
       }
-
-      all_point_index_[point_id].next.push_back(search_result[0]);
-      all_point_index_[point_id].next_dist.push_back(dist);
     }
   }
 
@@ -744,8 +758,26 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
           min_dist = neighbor_dist;
           next_point_id = all_point_index_[current_point.id].next[i]; 
         }
+        
+        /*
+        if (neighbor_dist < min_dist) {
+          min_dist = neighbor_dist;
+          IntIndex next_point_id = all_point_index_[current_point.id].next[i]; 
+          if (visited_point_flag[next_point_id]) {
+            continue;
+          }
+          visited_point_flag[next_point_id] = 1;
+          DistanceType next_dist = distance_func_(GetPoint(next_point_id), query);
+          num_cnt++;
+          size_t update_pos = result_candidates.insert(PointDistancePairItem(next_point_id, next_dist, true));
+          if (update_pos <= start_index) {
+            start_index = update_pos;
+          }
+        }
+        */
       }
     }
+    
     if (next_point_id == -1) continue;
     if (visited_point_flag[next_point_id]) {
       continue;
