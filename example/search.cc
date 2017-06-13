@@ -60,10 +60,10 @@ int LoadEmbeddingData(const string& file_path,
   return vec_dim;
 }
 int main(int argc, char** argv) {
-  if (argc != 8) {
+  if (argc != 7) {
     cout << "binary -data_path -index_path "
          << "-query_path -search_result_path "
-         << "-k -search_k -extend_search"
+         << "-k -search_k"
          << endl;
     return 0;
   }
@@ -76,9 +76,6 @@ int main(int argc, char** argv) {
   search_param.k = atoi(argv[5]);
   search_param.search_k = atoi(argv[6]);
   search_param.start_neighbor_num = 10;
-
-  bool extend_search = atoi(argv[7]);
-  cout << "extend_search: " << extend_search << endl; 
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   int point_dim = LoadEmbeddingData(data_path, dataset_ptr);
@@ -95,7 +92,7 @@ int main(int argc, char** argv) {
   int num_cnt = 0;
   //#pragma omp parallel for schedule(static)
   for (int i = 0; i < query_ptr->size(); i++) {
-    num_cnt += graph_index_ptr->SearchKnn((*query_ptr)[i], search_param, search_result[i], extend_search);
+    num_cnt += graph_index_ptr->SearchKnn((*query_ptr)[i], search_param, search_result[i]);
   }
   util::Log("end search");
 
