@@ -116,6 +116,8 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
     void ExtractIndex(); 
 
+    void BuildExtendIndex2(const util::GraphSearchParameter& extend_index_param); 
+
     void BuildExtendIndex(const util::GraphSearchParameter& extend_index_param); 
 
     void Prune();
@@ -263,7 +265,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LoadIndex(
 
     size_t next_num;
     point_info_stream >> next_num;
-    next_cnt += next_num;
     IntIndex next_id;
     for (size_t i = 0; i < next_num; i++) {
       point_info_stream >> next_id; 
@@ -272,6 +273,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LoadIndex(
       // discard dist
       point_info_stream >> dist; 
     }
+    next_cnt += point_index.next.size();
 
     all_point_index_.push_back(point_index);
   }
@@ -343,6 +345,45 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildExtendIndex2(
+    const util::GraphSearchParameter& extend_index_param) {
+
+  util::Log("before build extend index");
+
+  point_neighbor_num_ = 10;
+
+  #pragma omp parallel for schedule(static)
+  for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
+    PointNeighbor& knn = all_point_index_[point_id].knn;
+    const PointType& cur_point = GetPoint(point_id); 
+    for (size_t i = 0; i < knn.size()/*point_neighbor_num_*/; i++) {
+      const PointType& target_point = GetPoint(knn[i].id);
+      PointType direction = target_point - cur_point;
+      auto direction_norm = direction.normalized();
+
+      PointNeighbor& target_knn = all_point_index_[knn[i].id].knn;
+      DistanceType n_dist; 
+      IntIndex n_id = -1;
+      for (size_t j = 0; j < target_knn.size()/*point_neighbor_num_*/; j++) {
+        PointType candidate_direction = GetPoint(target_knn[j].id) - target_point;
+        // cal cosine
+        auto candidate_direction_norm = candidate_direction.normalized();
+        DistanceType dist = direction_norm.dot(candidate_direction_norm);
+        if (n_id == -1 || n_dist < dist) {
+          n_id = target_knn[j].id;
+          n_dist = dist;
+        }
+      }
+
+      all_point_index_[point_id].next.push_back(n_id);
+      all_point_index_[point_id].next_dist.push_back(n_dist);
+    }
+  }
+
+  util::Log("end build extend index");
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildExtendIndex(
     const util::GraphSearchParameter& extend_index_param) {
 
@@ -373,8 +414,16 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildExtendIndex(
 
       for (IntIndex next_candidate : search_result) {
         if (next_candidate != knn[i].id) {
-          DistanceType dist = distance_func_(cur_point, GetPoint(next_candidate));
+          //DistanceType dist = distance_func_(cur_point, GetPoint(next_candidate));
           all_point_index_[point_id].next.push_back(next_candidate);
+
+          PointType direction = GetPoint(next_candidate) - target_point;
+          auto direction_norm = direction.normalized();
+
+          PointType direction1 = target_point - cur_point;
+          auto direction_norm1 = direction1.normalized();
+          DistanceType dist = direction_norm1.dot(direction_norm);
+
           all_point_index_[point_id].next_dist.push_back(dist);
           break;
         }
@@ -736,8 +785,10 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
       // has deal with this point's neighbor
       current_point.flag = false;
     }
-    
     current_point.m = last_range;
+
+    // keep current point id because it may be replaced
+    IntIndex cur_point_id = current_point.id;
     DistanceType min_dist = current_point.distance;
     IntIndex next_point_id = -1;
     for (size_t i = first_range; i < last_range; i++) {
@@ -756,13 +807,13 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
         // this neighbor direction can update 
         if (neighbor_dist < min_dist) {
           min_dist = neighbor_dist;
-          next_point_id = all_point_index_[current_point.id].next[i]; 
+          next_point_id = all_point_index_[cur_point_id].next[i]; 
         }
         
         /*
         if (neighbor_dist < min_dist) {
           min_dist = neighbor_dist;
-          IntIndex next_point_id = all_point_index_[current_point.id].next[i]; 
+          IntIndex next_point_id = all_point_index_[cur_point_id].next[i]; 
           if (visited_point_flag[next_point_id]) {
             continue;
           }
