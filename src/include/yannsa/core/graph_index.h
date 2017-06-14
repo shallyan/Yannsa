@@ -113,7 +113,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
     void ExtractIndex(); 
 
-    void Prune();
+    void Prune(int exploit_num);
 
     void Reverse();
 
@@ -327,11 +327,13 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildKnnGraphIndex(
     LocalJoin();
   }
 
+  /*
   // keep point_neighbor_num nn graph
   Prune();
 
   // reverse 
   Reverse();
+  */
 
   // keep index
   ExtractIndex();
@@ -358,34 +360,37 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ExtractIndex() {
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune() {
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune(int exploit_num) {
 
+  point_neighbor_num_ = 10;
   #pragma omp parallel for schedule(static)
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
-    PointNeighbor& point_neighbor = all_point_info_[point_id].knn;
-    // keep top p and select another k-p 
-    int p = 1;
+    //PointNeighbor& point_neighbor = all_point_info_[point_id].knn;
+    PointNeighbor& point_neighbor = all_point_index_[point_id].knn;
+    // keep top exploit_num and select another k-exploit_num 
     std::vector<DistanceType> cosine_sums(point_neighbor.size(), 0);
-    std::vector<PointType> p_dirs;
-    for (size_t k = 0; k < p; k++) {
-      PointType dir = GetPoint(point_neighbor[k].id) - GetPoint(point_id);
+    std::vector<PointType> exploit_directions;
+    for (size_t i = 0; i < exploit_num; i++) {
+      PointType dir = GetPoint(point_neighbor[i].id) - GetPoint(point_id);
       PointType dir_norm = dir.normalized();
-      p_dirs.push_back(dir_norm);
+      exploit_directions.push_back(dir_norm);
     }
-    for (size_t j = p; j < point_neighbor.size(); j++) {
-      PointType c_dir = GetPoint(point_neighbor[j].id) - GetPoint(point_id);
-      PointType c_dir_norm = c_dir.normalized();
-      for (size_t k = 0; k < p; k++) {
-        PointType& dir_norm = p_dirs[k];
-        cosine_sums[j] += c_dir_norm.dot(dir_norm);
+
+    // calculate initial cosine_sum
+    for (size_t i = exploit_num; i < point_neighbor.size(); i++) {
+      PointType cur_dir = GetPoint(point_neighbor[i].id) - GetPoint(point_id);
+      PointType cur_dir_norm = cur_dir.normalized();
+      for (size_t j = 0; j < exploit_num; j++) {
+        cosine_sums[i] += cur_dir_norm.dot(exploit_directions[j]);
       }
     }
-    // select another k-p
-    for (size_t i = p; i < point_neighbor_num_; i++) {
-      // select min angle 
+    // select another k-exploit_num
+    // select i-th neighbor
+    for (size_t i = exploit_num; i < point_neighbor_num_; i++) {
+      // select min cosine_sum point 
       DistanceType min_cosine;
       int min_id = -1;
-      for (size_t j = i; j < point_neighbor.size(); j++) {
+      for (size_t j = i; j < std::min((size_t)30, point_neighbor.size()); j++) {
         if (min_id == -1 || cosine_sums[j] < min_cosine) {
           min_cosine = cosine_sums[j];
           min_id = j;
@@ -394,7 +399,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune() {
       std::swap(point_neighbor[min_id], point_neighbor[i]);
       std::swap(cosine_sums[min_id], cosine_sums[i]);
 
-      // update cosine 
+      // update cosine_sum 
       if (i+1 != point_neighbor_num_) {
         PointType add_dir = GetPoint(point_neighbor[i].id) - GetPoint(point_id);
         PointType add_dir_norm = add_dir.normalized();
@@ -413,12 +418,15 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune() {
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::Reverse() {
 
+  point_neighbor_num_ = 10;
   #pragma omp parallel for schedule(static)
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
-    PointNeighbor& point_neighbor = all_point_info_[point_id].knn;
+    PointNeighbor& point_neighbor = all_point_index_[point_id].knn;
+    //PointNeighbor& point_neighbor = all_point_info_[point_id].knn;
     for (size_t i = 0; i < point_neighbor_num_; i++) {
       IntIndex neighbor_id = point_neighbor[i].id;
-      PointNeighbor& neighbor = all_point_info_[neighbor_id].knn;
+      //PointNeighbor& neighbor = all_point_info_[neighbor_id].knn;
+      PointNeighbor& neighbor = all_point_index_[neighbor_id].knn;
       PointDistancePairItem reverse_neighbor(point_id, point_neighbor[i].distance, true);
       neighbor.parallel_push(reverse_neighbor);
     }
@@ -426,7 +434,8 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Reverse() {
 
   #pragma omp parallel for schedule(static)
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
-    PointNeighbor& point_neighbor = all_point_info_[point_id].knn;
+    //PointNeighbor& point_neighbor = all_point_info_[point_id].knn;
+    PointNeighbor& point_neighbor = all_point_index_[point_id].knn;
     point_neighbor.unique();
   }
 }
