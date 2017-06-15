@@ -58,9 +58,9 @@ int LoadEmbeddingData(const string& file_path,
 }
 
 int main(int argc, char** argv) {
-  if (argc != 5) {
+  if (argc != 6) {
     cout << "binary -data_path -index_path -extend_index_path "
-         << "-exploit_num"
+         << "-exploit_num -lambda"
          << endl;
     return 0;
   }
@@ -69,6 +69,7 @@ int main(int argc, char** argv) {
   string extend_index_path = argv[3];
 
   int exploit_num = atoi(argv[4]);
+  double lambda = atof(argv[5]);
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   int point_dim = LoadEmbeddingData(data_path, dataset_ptr);
@@ -76,7 +77,7 @@ int main(int argc, char** argv) {
   EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
 
   graph_index_ptr->LoadIndex(index_path);
-  graph_index_ptr->Prune(exploit_num);
+  graph_index_ptr->Prune(exploit_num, lambda);
   graph_index_ptr->Reverse();
   graph_index_ptr->SaveIndex(extend_index_path);
 

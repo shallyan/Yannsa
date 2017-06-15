@@ -113,7 +113,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
     void ExtractIndex(); 
 
-    void Prune(int exploit_num);
+    void Prune(int exploit_num, double lambda);
 
     void Reverse();
 
@@ -360,15 +360,16 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ExtractIndex() {
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune(int exploit_num) {
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune(int exploit_num, double lambda) {
 
   point_neighbor_num_ = 10;
+  size_t max_knn_size = 30;
   #pragma omp parallel for schedule(static)
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
     //PointNeighbor& point_neighbor = all_point_info_[point_id].knn;
     PointNeighbor& point_neighbor = all_point_index_[point_id].knn;
     // keep top exploit_num and select another k-exploit_num 
-    std::vector<DistanceType> cosine_sums(point_neighbor.size(), 0);
+    std::vector<DistanceType> max_cosine(point_neighbor.size(), 0);
     std::vector<PointType> exploit_directions;
     for (size_t i = 0; i < exploit_num; i++) {
       PointType dir = GetPoint(point_neighbor[i].id) - GetPoint(point_id);
@@ -377,36 +378,44 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune(int exploit_nu
     }
 
     // calculate initial cosine_sum
-    for (size_t i = exploit_num; i < point_neighbor.size(); i++) {
+    for (size_t i = exploit_num; i < std::min(max_knn_size, point_neighbor.size()); i++) {
       PointType cur_dir = GetPoint(point_neighbor[i].id) - GetPoint(point_id);
       PointType cur_dir_norm = cur_dir.normalized();
       for (size_t j = 0; j < exploit_num; j++) {
-        cosine_sums[i] += cur_dir_norm.dot(exploit_directions[j]);
+        if (j == 0) {
+          max_cosine[i] = cur_dir_norm.dot(exploit_directions[j]);
+        }
+        else {
+          max_cosine[i] = std::max(max_cosine[i], cur_dir_norm.dot(exploit_directions[j]));
+        }
       }
     }
+    
     // select another k-exploit_num
     // select i-th neighbor
     for (size_t i = exploit_num; i < point_neighbor_num_; i++) {
-      // select min cosine_sum point 
-      DistanceType min_cosine;
-      int min_id = -1;
-      for (size_t j = i; j < std::min((size_t)30, point_neighbor.size()); j++) {
-        if (min_id == -1 || cosine_sums[j] < min_cosine) {
-          min_cosine = cosine_sums[j];
-          min_id = j;
+      // calculate and select min mmr
+      double max_mmr;
+      int max_mmr_id = -1;
+      for (size_t j = i; j < std::min(max_knn_size, point_neighbor.size()); j++) {
+        double mmr = lambda * (-point_neighbor[j].distance) - (1 - lambda) * max_cosine[j];
+        if (max_mmr_id == -1 || max_mmr < mmr) {
+          max_mmr_id = j;
+          max_mmr = mmr;
         }
       }
-      std::swap(point_neighbor[min_id], point_neighbor[i]);
-      std::swap(cosine_sums[min_id], cosine_sums[i]);
 
-      // update cosine_sum 
+      std::swap(point_neighbor[max_mmr_id], point_neighbor[i]);
+      std::swap(max_cosine[max_mmr_id], max_cosine[i]);
+
+      // update max_cosine 
       if (i+1 != point_neighbor_num_) {
         PointType add_dir = GetPoint(point_neighbor[i].id) - GetPoint(point_id);
         PointType add_dir_norm = add_dir.normalized();
-        for (size_t j = i+1; j < point_neighbor.size(); j++) {
+        for (size_t j = i+1; j < std::min(max_knn_size, point_neighbor.size()); j++) {
           PointType dir = GetPoint(point_neighbor[j].id) - GetPoint(point_id);
           PointType dir_norm = dir.normalized();
-          cosine_sums[j] += dir_norm.dot(add_dir_norm);
+          max_cosine[j] = std::max(max_cosine[j], dir_norm.dot(add_dir_norm));
         }
       }
     }
