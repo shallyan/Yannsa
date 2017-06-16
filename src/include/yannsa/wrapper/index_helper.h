@@ -34,6 +34,14 @@ using EuclideanGraphIndex = core::GraphIndex<PointVector<CoordinateType>,
 template <typename CoordinateType>
 using EuclideanGraphIndexPtr = std::shared_ptr<EuclideanGraphIndex<CoordinateType> >;
 
+template <typename CoordinateType>
+using EuclideanBruteForceIndex = core::BruteForceIndex<PointVector<CoordinateType>, 
+                                                       EuclideanDistance<CoordinateType>, 
+                                                       CoordinateType>;
+
+template <typename CoordinateType>
+using EuclideanBruteForceIndexPtr = std::shared_ptr<EuclideanBruteForceIndex<CoordinateType> >;
+
 } // namespace wrapper 
 } // namespace yannsa
 
