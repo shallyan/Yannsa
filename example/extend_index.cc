@@ -15,7 +15,7 @@ using namespace yannsa;
 using namespace yannsa::util;
 using namespace yannsa::wrapper;
 
-int LoadEmbeddingData(const string& file_path,
+void LoadEmbeddingData(const string& file_path,
                       DatasetPtr<float>& dataset_ptr) { 
 
   ifstream in_file(file_path.c_str());
@@ -53,31 +53,29 @@ int LoadEmbeddingData(const string& file_path,
 
   cout << "create dataset done, data num: " 
        << dataset_ptr->size() << endl;
-
-  return vec_dim;
 }
 
 int main(int argc, char** argv) {
-  if (argc != 6) {
+  if (argc != 5) {
     cout << "binary -data_path -index_path -extend_index_path "
-         << "-exploit_num -lambda"
+         << "-lambda"
          << endl;
     return 0;
   }
   string data_path = argv[1];
   string index_path = argv[2];
   string extend_index_path = argv[3];
-
-  int exploit_num = atoi(argv[4]);
-  double lambda = atof(argv[5]);
+  double lambda = atof(argv[4]);
+  bool need_scale = false;
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
-  int point_dim = LoadEmbeddingData(data_path, dataset_ptr);
+  LoadEmbeddingData(data_path, dataset_ptr);
   
-  EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
+  //EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
+  DotGraphIndexPtr<float> graph_index_ptr(new DotGraphIndex<float>(dataset_ptr));
 
   graph_index_ptr->LoadIndex(index_path);
-  graph_index_ptr->Prune(exploit_num, lambda);
+  graph_index_ptr->Prune(lambda, need_scale);
   graph_index_ptr->Reverse();
   graph_index_ptr->SaveIndex(extend_index_path);
 

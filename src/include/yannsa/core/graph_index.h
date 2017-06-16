@@ -3,6 +3,7 @@
 
 #include "yannsa/base/type_definition.h"
 #include "yannsa/base/error_definition.h"
+#include "yannsa/base/constant_definition.h"
 #include "yannsa/util/sorted_array.h"
 #include "yannsa/util/parameter.h"
 #include "yannsa/util/logging.h"
@@ -113,7 +114,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
     void ExtractIndex(); 
 
-    void Prune(int exploit_num, double lambda);
+    void Prune(double lambda, bool need_scale);
 
     void Reverse();
 
@@ -360,67 +361,73 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ExtractIndex() {
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune(int exploit_num, double lambda) {
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune(
+    double lambda, bool need_scale) {
 
   point_neighbor_num_ = 10;
   size_t max_knn_size = 30;
   #pragma omp parallel for schedule(static)
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
-    //PointNeighbor& point_neighbor = all_point_info_[point_id].knn;
-    PointNeighbor& point_neighbor = all_point_index_[point_id].knn;
-    // keep top exploit_num and select another k-exploit_num 
-    std::vector<DistanceType> max_cosine(point_neighbor.size(), 0);
-    std::vector<PointType> exploit_directions;
-    for (size_t i = 0; i < exploit_num; i++) {
-      PointType dir = GetPoint(point_neighbor[i].id) - GetPoint(point_id);
-      PointType dir_norm = dir.normalized();
-      exploit_directions.push_back(dir_norm);
-    }
+    //PointNeighbor& knn = all_point_info_[point_id].knn;
+    PointNeighbor& knn = all_point_index_[point_id].knn;
 
-    // calculate initial cosine_sum
-    for (size_t i = exploit_num; i < std::min(max_knn_size, point_neighbor.size()); i++) {
-      PointType cur_dir = GetPoint(point_neighbor[i].id) - GetPoint(point_id);
-      PointType cur_dir_norm = cur_dir.normalized();
-      for (size_t j = 0; j < exploit_num; j++) {
-        if (j == 0) {
-          max_cosine[i] = cur_dir_norm.dot(exploit_directions[j]);
-        }
-        else {
-          max_cosine[i] = std::max(max_cosine[i], cur_dir_norm.dot(exploit_directions[j]));
-        }
+    size_t knn_candidate_size = std::min(max_knn_size, knn.size());
+    // Diversity: max_cosine as similarity, min max_cosine
+    std::vector<double> max_cosine(knn_candidate_size, -1.0);
+    // Relevance: scale_neg_distance as similarity, max scale_neg_distance
+    std::vector<double> similarity(knn_candidate_size, 0);
+
+    // cal similarity
+    DistanceType max_dist = knn[0].distance, min_dist = knn[0].distance;
+    if (need_scale) {
+      for (size_t i = 1; i < knn_candidate_size; i++) {
+        max_dist = std::max(knn[i].distance, max_dist);
+        min_dist = std::min(knn[i].distance, min_dist);
       }
     }
-    
-    // select another k-exploit_num
-    // select i-th neighbor
-    for (size_t i = exploit_num; i < point_neighbor_num_; i++) {
-      // calculate and select min mmr
-      double max_mmr;
+    for (size_t i = 0; i < knn_candidate_size; i++) {
+      // for cosine, distance = - similarity
+      double dist = static_cast<double>(knn[i].distance);
+      if (need_scale) {
+        // linear scale to [-1, 1]
+        if (max_dist - min_dist > constant::epsilon) {
+          dist = ((dist - min_dist) + (dist - max_dist)) / (max_dist - min_dist);
+        }
+      }
+      similarity[i] = -dist;
+
+      // tmp, convert euclidean to consine
+      similarity[i] = 1 - 0.5*dist*dist;
+    }
+
+    // select i-th neighbors
+    for (size_t i = 1; i < point_neighbor_num_; i++) {
+      // update divisity score
+      PointType added_dir = GetPoint(knn[i-1].id) - GetPoint(point_id);
+      PointType added_dir_norm = added_dir.normalized();
+      for (size_t j = i; j < knn_candidate_size; j++) {
+        PointType cur_dir = GetPoint(knn[j].id) - GetPoint(point_id);
+        PointType cur_dir_norm = cur_dir.normalized();
+        max_cosine[j] = std::max(max_cosine[j], static_cast<double>(cur_dir_norm.dot(added_dir_norm)));
+      }
+
+      // select max mmr
+      double max_mmr = 0.0;
       int max_mmr_id = -1;
-      for (size_t j = i; j < std::min(max_knn_size, point_neighbor.size()); j++) {
-        double mmr = lambda * (-point_neighbor[j].distance) - (1 - lambda) * max_cosine[j];
+      for (size_t j = i; j < knn_candidate_size; j++) {
+        double mmr = lambda * similarity[j] - (1 - lambda) * max_cosine[j];
         if (max_mmr_id == -1 || max_mmr < mmr) {
           max_mmr_id = j;
           max_mmr = mmr;
         }
       }
 
-      std::swap(point_neighbor[max_mmr_id], point_neighbor[i]);
+      std::swap(knn[max_mmr_id], knn[i]);
       std::swap(max_cosine[max_mmr_id], max_cosine[i]);
-
-      // update max_cosine 
-      if (i+1 != point_neighbor_num_) {
-        PointType add_dir = GetPoint(point_neighbor[i].id) - GetPoint(point_id);
-        PointType add_dir_norm = add_dir.normalized();
-        for (size_t j = i+1; j < std::min(max_knn_size, point_neighbor.size()); j++) {
-          PointType dir = GetPoint(point_neighbor[j].id) - GetPoint(point_id);
-          PointType dir_norm = dir.normalized();
-          max_cosine[j] = std::max(max_cosine[j], dir_norm.dot(add_dir_norm));
-        }
-      }
+      std::swap(similarity[max_mmr_id], similarity[i]);
     }
 
-    point_neighbor.remax_size(point_neighbor_num_);
+    knn.remax_size(point_neighbor_num_);
   }
 }
 

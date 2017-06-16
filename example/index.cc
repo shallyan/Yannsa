@@ -15,8 +15,8 @@ using namespace yannsa;
 using namespace yannsa::util;
 using namespace yannsa::wrapper;
 
-int LoadEmbeddingData(const string& file_path,
-                      DatasetPtr<float>& dataset_ptr) { 
+void LoadEmbeddingData(const string& file_path,
+                       DatasetPtr<float>& dataset_ptr) { 
 
   ifstream in_file(file_path.c_str());
 
@@ -53,8 +53,6 @@ int LoadEmbeddingData(const string& file_path,
 
   cout << "create dataset done, data num: " 
        << dataset_ptr->size() << endl;
-
-  return vec_dim;
 }
 
 int main(int argc, char** argv) {
@@ -73,7 +71,7 @@ int main(int argc, char** argv) {
   param.refine_iter_num = atoi(argv[5]);
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
-  int point_dim = LoadEmbeddingData(data_path, dataset_ptr);
+  LoadEmbeddingData(data_path, dataset_ptr);
   
   EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
 

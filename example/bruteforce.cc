@@ -16,15 +16,10 @@ using namespace yannsa;
 using namespace yannsa::util;
 using namespace yannsa::wrapper;
 
-int LoadEmbeddingData(const string& file_path,
+void LoadEmbeddingData(const string& file_path,
                       DatasetPtr<float>& dataset_ptr) { 
 
   ifstream in_file(file_path.c_str());
-  if (!in_file.is_open()) {
-    cout << "open file error" << endl;
-    exit(-1);
-  }
-
   string buff;
 
   //read word and dim number
@@ -67,9 +62,8 @@ int LoadEmbeddingData(const string& file_path,
 
   cout << "create dataset done, data num: " 
        << dataset_ptr->size() << endl;
-
-  return vec_dim;
 }
+
 int main(int argc, char** argv) {
   if (argc != 5) {
     cout << "binary -data_path -query_path -search_result_path -k"
@@ -82,7 +76,7 @@ int main(int argc, char** argv) {
   int k = atoi(argv[4]);
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
-  int point_dim = LoadEmbeddingData(data_path, dataset_ptr);
+  LoadEmbeddingData(data_path, dataset_ptr);
   
   DatasetPtr<float> query_ptr(new Dataset<float>());
   LoadEmbeddingData(query_path, query_ptr);

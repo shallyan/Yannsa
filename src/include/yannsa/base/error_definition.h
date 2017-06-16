@@ -1,5 +1,5 @@
-#ifndef YANNSA_COMMON_H
-#define YANNSA_COMMON_H
+#ifndef YANNSA_ERROR_DEFINITION_H
+#define YANNSA_ERROR_DEFINITION_H 
 
 #include <string>
 #include <stdexcept>
