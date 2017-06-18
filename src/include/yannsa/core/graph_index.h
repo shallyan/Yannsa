@@ -445,7 +445,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Reverse() {
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
     //PointNeighbor& point_neighbor = all_point_info_[point_id].knn;
     PointNeighbor& point_neighbor = all_point_index_[point_id].knn;
-    point_neighbor.unique();
+    point_neighbor.unique(point_neighbor_num_);
   }
 }
 

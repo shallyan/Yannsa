@@ -72,6 +72,29 @@ class SortedArray {
       sorted_array_.resize(std::unique(sorted_array_.begin(), sorted_array_.end()) - sorted_array_.begin());
     }
 
+    void unique(size_t start) {
+      std::sort(sorted_array_.begin()+start, sorted_array_.end());
+      size_t cur_pos = start;
+      for (size_t i = start; i < sorted_array_.size(); i++) {
+        // check neighbor
+        if (i >= 1 && sorted_array_[i] == sorted_array_[i-1]) {
+          continue;
+        }
+        // check front part
+        bool is_duplicate = false;
+        for (size_t e = 0; e < cur_pos; e++) {
+          if (sorted_array_[e] == sorted_array_[i]) {
+            is_duplicate = true;
+            break;
+          }
+        }
+        if (!is_duplicate) {
+          sorted_array_[cur_pos++] = sorted_array_[i];
+        }
+      }
+      sorted_array_.resize(cur_pos);
+    }
+
     void parallel_push(const PointType& new_point) {
       ScopedLock lock(lock_);
       return push(new_point);
