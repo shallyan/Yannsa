@@ -15,10 +15,9 @@ using namespace yannsa::util;
 using namespace yannsa::wrapper;
 
 int main(int argc, char** argv) {
-  if (argc != 7) {
+  if (argc != 5) {
     cout << "binary -data_path -index_path "
          << "-query_path -search_result_path "
-         << "-k -search_k"
          << endl;
     return 0;
   }
@@ -27,41 +26,54 @@ int main(int argc, char** argv) {
   string query_path = argv[3];
   string search_result_path = argv[4];
 
-  util::GraphSearchParameter search_param;
-  search_param.k = atoi(argv[5]);
-  search_param.search_k = atoi(argv[6]);
-  search_param.start_neighbor_num = 10;
+  util::Log("Load data");
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   LoadEmbeddingData(data_path, dataset_ptr);
   DatasetPtr<float> query_ptr(new Dataset<float>());
   LoadEmbeddingData(query_path, query_ptr);
+
+  util::Log("Load data done");
   
   EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
 
+  util::Log("Load index");
   graph_index_ptr->LoadIndex(index_path);
+  util::Log("Load index done");
 
-  vector<vector<string> > search_result(query_ptr->size());
+  int k, search_k;
+  while (true) {
+    cout << "Input k and search_k: ";
+    cin >> k >> search_k;
 
-  util::Log("before search");
-  int num_cnt = 0;
-  //#pragma omp parallel for schedule(static)
-  for (int i = 0; i < query_ptr->size(); i++) {
-    num_cnt += graph_index_ptr->SearchKnn((*query_ptr)[i], search_param, search_result[i]);
-  }
-  util::Log("end search");
+    GraphSearchParameter search_param;
+    search_param.k = k;
+    search_param.search_k = search_k;
+    search_param.start_neighbor_num = 10;
 
-  cout << "calculate data num: " << num_cnt << endl;
-  ofstream result_file(search_result_path);
+    vector<vector<string> > search_result(query_ptr->size());
 
-  for (int i = 0; i < query_ptr->size(); i++) {
-    result_file << query_ptr->GetKeyById(i) << " ";
-    for (auto nn : search_result[i]) {
-      result_file << nn << " ";
+    string prompt = "Before search: ";
+    prompt += "k = " + to_string(k) + " search_k = " + to_string(search_k);
+    util::Log(prompt);
+    int num_cnt = 0;
+    for (size_t i = 0; i < query_ptr->size(); i++) {
+      num_cnt += graph_index_ptr->SearchKnn((*query_ptr)[i], search_param, search_result[i]);
     }
-    result_file << endl;
+    util::Log("End search");
+
+    cout << "Calculate data num: " << num_cnt << endl;
+    ofstream result_file(search_result_path);
+
+    for (size_t i = 0; i < query_ptr->size(); i++) {
+      result_file << query_ptr->GetKeyById(i) << " ";
+      for (auto nn : search_result[i]) {
+        result_file << nn << " ";
+      }
+      result_file << endl;
+    }
+    result_file.close();
   }
-  result_file.close();
 
   return 0;
 }
