@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <omp.h>
+#include <ctime>
 
 using namespace std;
 using namespace yannsa;
@@ -57,14 +58,16 @@ int main(int argc, char** argv) {
     prompt += "k = " + to_string(k) + " search_k = " + to_string(search_k);
     util::Log(prompt);
     int num_cnt = 0;
+    clock_t start_time = clock();
     for (size_t i = 0; i < query_ptr->size(); i++) {
       num_cnt += graph_index_ptr->SearchKnn((*query_ptr)[i], search_param, search_result[i]);
     }
     util::Log("End search");
+    clock_t end_time = clock();
+    cout << "Calculate data num: " << num_cnt 
+         << " time: " << (double)(end_time - start_time) / CLOCKS_PER_SEC << "s" << endl;
 
-    cout << "Calculate data num: " << num_cnt << endl;
     ofstream result_file(search_result_path);
-
     for (size_t i = 0; i < query_ptr->size(); i++) {
       result_file << query_ptr->GetKeyById(i) << " ";
       for (auto nn : search_result[i]) {
