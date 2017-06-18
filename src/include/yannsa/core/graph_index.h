@@ -12,12 +12,9 @@
 #include "yannsa/core/base_index.h"
 #include <omp.h>
 #include <vector>
-#include <unordered_map>
-#include <unordered_set>
 #include <string>
 #include <memory>
 #include <algorithm>
-#include <ctime>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -143,7 +140,6 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
       return this->dataset_ptr_->size();
     }
 
-    int UpdatePointKnn(IntIndex point1, IntIndex point2, DistanceType dist);
     int UpdatePointKnn(IntIndex point1, IntIndex point2);
 
     void InitPointNeighborInfo();
@@ -300,11 +296,10 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
     throw IndexBuildError("Graph index has already been built!");
   }
 
+  Clear();
+
   // build basic knn graph
   BuildKnnGraphIndex(index_param);
-
-  // build extend knn graph
-  // BuildExtendIndex();
   
   this->have_built_ = true;
   util::Log("end build");
@@ -314,15 +309,13 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildKnnGraphIndex(
     const util::GraphIndexParameter& index_param) {
 
-  Clear();
-
   Init(index_param);
 
   util::Log("before init");
   InitPointNeighborInfo();
 
   util::Log("before refine");
-  for (int loop = 0; loop < index_param.refine_iter_num; loop++) {
+  for (size_t loop = 0; loop < index_param.refine_iter_num; loop++) {
     util::Log(std::to_string(loop) + " iteration ");
     UpdatePointNeighborInfo();
     LocalJoin();
@@ -531,7 +524,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointNeighborI
 }
 
 // LocalJoin is proposed by NNDescent(KGraph)
-// Many thanks
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 int GraphIndex<PointType, DistanceFuncType, DistanceType>::LocalJoin() {
 
@@ -590,16 +582,6 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointKnn(
   }
 
   DistanceType dist = distance_func_(GetPoint(point1), GetPoint(point2));
-  return UpdatePointKnn(point1, point2, dist);
-}
-
-template <typename PointType, typename DistanceFuncType, typename DistanceType>
-int GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointKnn(
-    IntIndex point1, IntIndex point2, DistanceType dist) {
-
-  if (point1 == point2) {
-    return 0;
-  }
 
   int update_count = 0;
   int update_pos = all_point_info_[point1].knn.parallel_insert(PointDistancePairItem(point2, dist, true));

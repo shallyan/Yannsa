@@ -52,16 +52,16 @@ int main(int argc, char** argv) {
   util::Log("end search");
 
   cout << "calculate data num: " << num_cnt << endl;
-  ofstream resulte_file(search_result_path);
+  ofstream result_file(search_result_path);
 
   for (int i = 0; i < query_ptr->size(); i++) {
-    resulte_file << query_ptr->GetKeyById(i) << " ";
+    result_file << query_ptr->GetKeyById(i) << " ";
     for (auto nn : search_result[i]) {
-      resulte_file << nn << " ";
+      result_file << nn << " ";
     }
-    resulte_file << endl;
+    result_file << endl;
   }
-  resulte_file.close();
+  result_file.close();
 
   return 0;
 }
