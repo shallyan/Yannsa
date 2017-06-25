@@ -23,13 +23,12 @@ int main(int argc, char** argv) {
   string index_path = argv[2];
   string extend_index_path = argv[3];
   double lambda = atof(argv[4]);
-  bool need_scale = false;
+  bool need_scale = true;
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   LoadEmbeddingData(data_path, dataset_ptr);
   
-  //EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
-  DotGraphIndexPtr<float> graph_index_ptr(new DotGraphIndex<float>(dataset_ptr));
+  EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
 
   graph_index_ptr->LoadIndex(index_path);
   graph_index_ptr->Prune(lambda, need_scale);

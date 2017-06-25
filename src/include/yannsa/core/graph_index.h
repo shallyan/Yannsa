@@ -101,7 +101,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     };
 
   public:
-    GraphIndex(typename BaseClass::DatasetPtr& dataset_ptr) : BaseClass(dataset_ptr) {}
+    GraphIndex(typename BaseClass::DatasetPtr& dataset_ptr) : BaseClass(dataset_ptr) {point_neighbor_num_ = 10;}
 
     void Clear(); 
 
@@ -357,7 +357,6 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune(
     double lambda, bool need_scale) {
 
-  point_neighbor_num_ = 10;
   size_t max_knn_size = 30;
   #pragma omp parallel for schedule(static)
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
@@ -365,32 +364,19 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune(
     PointNeighbor& knn = all_point_index_[point_id].knn;
 
     size_t knn_candidate_size = std::min(max_knn_size, knn.size());
-    // Diversity: max_cosine as similarity, min max_cosine
-    std::vector<double> max_cosine(knn_candidate_size, -1.0);
-    // Relevance: scale_neg_distance as similarity, max scale_neg_distance
-    std::vector<double> similarity(knn_candidate_size, 0);
+    std::vector<double> max_cosine(knn_candidate_size, 0.0);
+    std::vector<double> proximity(knn_candidate_size, 0.0);
 
-    // cal similarity
-    DistanceType max_dist = knn[0].distance, min_dist = knn[0].distance;
+    DistanceType max_dist = knn[0].distance;
     if (need_scale) {
       for (size_t i = 1; i < knn_candidate_size; i++) {
         max_dist = std::max(knn[i].distance, max_dist);
-        min_dist = std::min(knn[i].distance, min_dist);
       }
     }
     for (size_t i = 0; i < knn_candidate_size; i++) {
       // for cosine, distance = - similarity
       double dist = static_cast<double>(knn[i].distance);
-      if (need_scale) {
-        // linear scale to [-1, 1]
-        if (max_dist - min_dist > constant::epsilon) {
-          dist = ((dist - min_dist) + (dist - max_dist)) / (max_dist - min_dist);
-        }
-      }
-      similarity[i] = -dist;
-
-      // tmp, convert euclidean to consine
-      similarity[i] = 1 - 0.5*dist*dist;
+      proximity[i] = 1.0 - dist / (max_dist + constant::epsilon);
     }
 
     // select i-th neighbors
@@ -408,7 +394,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune(
       double max_mmr = 0.0;
       int max_mmr_id = -1;
       for (size_t j = i; j < knn_candidate_size; j++) {
-        double mmr = lambda * similarity[j] - (1 - lambda) * max_cosine[j];
+        double mmr = lambda * proximity[j] - (1 - lambda) * (0.5 + 0.5*max_cosine[j]);
         if (max_mmr_id == -1 || max_mmr < mmr) {
           max_mmr_id = j;
           max_mmr = mmr;
@@ -417,7 +403,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune(
 
       std::swap(knn[max_mmr_id], knn[i]);
       std::swap(max_cosine[max_mmr_id], max_cosine[i]);
-      std::swap(similarity[max_mmr_id], similarity[i]);
+      std::swap(proximity[max_mmr_id], proximity[i]);
     }
 
     knn.remax_size(point_neighbor_num_);
@@ -427,7 +413,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune(
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::Reverse() {
 
-  point_neighbor_num_ = 10;
   #pragma omp parallel for schedule(static)
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
     PointNeighbor& point_neighbor = all_point_index_[point_id].knn;
