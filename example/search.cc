@@ -50,7 +50,6 @@ int main(int argc, char** argv) {
     GraphSearchParameter search_param;
     search_param.k = k;
     search_param.search_k = search_k;
-    search_param.start_neighbor_num = 10;
 
     vector<vector<string> > search_result(query_ptr->size());
 

@@ -612,27 +612,26 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
     }
 
     PointNeighbor& knn = all_point_index_[current_point.id].knn;
-    size_t first_range = current_point.m;
-    size_t last_range = current_point.m + search_param.start_neighbor_num; 
-    if (last_range >= knn.size()) {
-      last_range = knn.size();
-      // has deal with this point's neighbor
-      current_point.flag = false;
+    if (current_point.m == knn.size()) {
+      current_point.flag = false; 
+      continue;
     }
-    current_point.m = last_range;
 
-    for (size_t i = first_range; i < last_range; i++) {
-      if (visited_point_flag[knn[i].id]) {
+    for (; current_point.m < knn.size(); current_point.m++) {
+      IntIndex neighbor_id = knn[current_point.m].id;
+      if (visited_point_flag[neighbor_id]) {
         continue;
       }
-      visited_point_flag[knn[i].id] = 1;
-      DistanceType neighbor_dist = distance_func_(GetPoint(knn[i].id), query);
+      visited_point_flag[neighbor_id] = 1;
+      DistanceType neighbor_dist = distance_func_(GetPoint(neighbor_id), query);
       num_cnt++;
-      size_t update_pos = result_candidates.insert(PointDistancePairItem(knn[i].id, neighbor_dist, true));
+
+      size_t update_pos = result_candidates.insert(PointDistancePairItem(neighbor_id, neighbor_dist, true));
+      // if updated, must break because current_point has been changed while knn not
       if (update_pos <= start_index) {
         start_index = update_pos;
+        break;
       }
-
     }
   }
     
