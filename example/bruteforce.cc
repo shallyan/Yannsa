@@ -29,18 +29,16 @@ int main(int argc, char** argv) {
   DatasetPtr<float> query_ptr(new Dataset<float>());
   LoadEmbeddingData(query_path, query_ptr);
 
-  DotBruteForceIndexPtr<float> brute_index_ptr(new DotBruteForceIndex<float>(dataset_ptr));
+  EuclideanBruteForceIndexPtr<float> brute_index_ptr(new EuclideanBruteForceIndex<float>(dataset_ptr));
 
-  vector<vector<string> > real_knn(query_ptr->size());
+  vector<IdList> real_knn(query_ptr->size());
   #pragma omp parallel for schedule(static)
   for (size_t i = 0; i < query_ptr->size(); i++) {
     brute_index_ptr->SearchKnn((*query_ptr)[i], k, real_knn[i]);
   }
 
   ofstream save_file(search_result_path);
-  for (size_t i = 0; i < real_knn.size(); i ++) {
-    string key = query_ptr->GetKeyById(i);
-    save_file << key << " ";
+  for (size_t i = 0; i < real_knn.size(); i++) {
     for (size_t j = 0; j < real_knn[i].size(); j++) {
       save_file << real_knn[i][j] << " ";
     }

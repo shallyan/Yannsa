@@ -11,24 +11,27 @@ real_graph_path = sys.argv[2]
 k = int(sys.argv[3])
 
 def ReadGraph(graph_path):
-  graph_list = list()
+  graph_dict = dict()
   with open(graph_path) as f:
     for line in f:
       fields = line.strip().split()
-      neighbor = set(fields)
-      if len(neighbor) != len(fields):
+      point = fields[0]
+      knn = fields[1:k+1]
+      neighbor = set(knn)
+      if len(neighbor) != len(knn):
         print fields
         print 'knn not unique'
-      graph_list.append(neighbor)
-  return graph_list
+      graph_dict[point] = neighbor
+  return graph_dict
 
 result_graph = ReadGraph(graph_path)
 real_graph = ReadGraph(real_graph_path)
 
 hit = 0
-for real, result in zip(real_graph, result_graph):
-  cur_hit = len(result & real)
-  print cur_hit
+for point, real_neighbor in real_graph.iteritems():
+  result_neighbor = result_graph[point]
+  cur_hit = len(result_neighbor & real_neighbor)
+  print cur_hit / 10.0
   hit += cur_hit
 
 print 'Average precision: ', hit * 1.0 / (len(real_graph) * k)
