@@ -13,9 +13,10 @@ using namespace yannsa::util;
 using namespace yannsa::wrapper;
 
 int main(int argc, char** argv) {
-  if (argc != 6) {
+  if (argc != 7) {
     cout << "binary -data_path -index_path -point_neighbor_num "
-         << "-max_point_neighbor_num -refine_iter_num"
+         << "-join_point_neighbor_num -max_point_neighbor_num "
+         << "-refine_iter_num"
          << endl;
     return 0;
   }
@@ -24,8 +25,9 @@ int main(int argc, char** argv) {
 
   util::GraphIndexParameter param;
   param.point_neighbor_num = atoi(argv[3]);
-  param.max_point_neighbor_num = atoi(argv[4]);
-  param.refine_iter_num = atoi(argv[5]);
+  param.join_point_neighbor_num = atoi(argv[4]);
+  param.max_point_neighbor_num = atoi(argv[5]);
+  param.refine_iter_num = atoi(argv[6]);
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   LoadEmbeddingData(data_path, dataset_ptr);
