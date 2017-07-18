@@ -110,9 +110,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
     void Prune(double lambda, int point_neighbor_num);
 
-    void Reverse(size_t max_knn_size);
-
-    void Reverse2(size_t max_knn_size);
+    void Reverse();
 
     int SearchKnn(const PointType& query,
                    const util::GraphSearchParameter& search_param,
@@ -391,21 +389,14 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune(
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::Reverse2(size_t max_knn_size) {
-
-  // cut
-  #pragma omp parallel for schedule(static)
-  for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
-    PointNeighbor& knn = all_point_index_[point_id].knn;
-    knn.remax_size(max_knn_size);
-  }
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::Reverse() {
 
   // reverse
   #pragma omp parallel for schedule(static)
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
     PointNeighbor& point_neighbor = all_point_index_[point_id].knn;
     //PointNeighbor& point_neighbor = all_point_info_[point_id].knn;
-    for (size_t i = 0; i < max_knn_size; i++) {
+    for (size_t i = 0; i < point_neighbor_num_; i++) {
       IntIndex neighbor_id = point_neighbor[i].id;
       //PointNeighbor& neighbor = all_point_info_[neighbor_id].knn;
       PointNeighbor& neighbor = all_point_index_[neighbor_id].knn;
@@ -418,39 +409,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Reverse2(size_t max_
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
     //PointNeighbor& point_neighbor = all_point_info_[point_id].knn;
     PointNeighbor& point_neighbor = all_point_index_[point_id].knn;
-    point_neighbor.unique(max_knn_size);
-  }
-}
-
-template <typename PointType, typename DistanceFuncType, typename DistanceType>
-void GraphIndex<PointType, DistanceFuncType, DistanceType>::Reverse(size_t max_knn_size) {
-
-  // cut
-  #pragma omp parallel for schedule(static)
-  for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
-    PointNeighbor& knn = all_point_index_[point_id].knn;
-    knn.remax_size(max_knn_size);
-  }
-
-  // reverse
-  #pragma omp parallel for schedule(static)
-  for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
-    PointNeighbor& point_neighbor = all_point_index_[point_id].knn;
-    //PointNeighbor& point_neighbor = all_point_info_[point_id].knn;
-    for (size_t i = 0; i < max_knn_size; i++) {
-      IntIndex neighbor_id = point_neighbor[i].id;
-      //PointNeighbor& neighbor = all_point_info_[neighbor_id].knn;
-      PointNeighbor& neighbor = all_point_index_[neighbor_id].knn;
-      PointDistancePairItem reverse_neighbor(point_id, point_neighbor[i].distance, true);
-      neighbor.parallel_push(reverse_neighbor);
-    }
-  }
-
-  #pragma omp parallel for schedule(static)
-  for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
-    //PointNeighbor& point_neighbor = all_point_info_[point_id].knn;
-    PointNeighbor& point_neighbor = all_point_index_[point_id].knn;
-    point_neighbor.unique();
+    point_neighbor.unique(point_neighbor_num_);
   }
 }
 

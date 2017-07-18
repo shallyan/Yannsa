@@ -13,9 +13,9 @@ using namespace yannsa::util;
 using namespace yannsa::wrapper;
 
 int main(int argc, char** argv) {
-  if (argc != 7) {
+  if (argc != 6) {
     cout << "binary -data_path -index_path -extend_index_path "
-         << "-lambda -point_neighbor_num -max_knn_size"
+         << "-lambda -point_neighbor_num"
          << endl;
     return 0;
   }
@@ -24,7 +24,6 @@ int main(int argc, char** argv) {
   string extend_index_path = argv[3];
   double lambda = atof(argv[4]);
   int point_neighbor_num = atoi(argv[5]);
-  int max_knn_size = atoi(argv[6]);
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   LoadEmbeddingData(data_path, dataset_ptr);
@@ -32,9 +31,8 @@ int main(int argc, char** argv) {
   EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
 
   graph_index_ptr->LoadIndex(index_path);
-  graph_index_ptr->Reverse(max_knn_size);
   graph_index_ptr->Prune(lambda, point_neighbor_num);
-  graph_index_ptr->Reverse2(point_neighbor_num);
+  graph_index_ptr->Reverse();
   graph_index_ptr->SaveIndex(extend_index_path);
 
   return 0;
