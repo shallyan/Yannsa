@@ -98,7 +98,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     };
 
   public:
-    GraphIndex(typename BaseClass::DatasetPtr& dataset_ptr) : BaseClass(dataset_ptr) {point_neighbor_num_ = 10;}
+    GraphIndex(typename BaseClass::DatasetPtr& dataset_ptr) : BaseClass(dataset_ptr) {}
 
     void Clear(); 
 
@@ -108,7 +108,10 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
     void ExtractIndex(); 
 
-    void Prune(double lambda, int point_neighbor_num);
+    void Prune(double lambda, int knn_candidate_size, int point_neighbor_num);
+
+    // DPG
+    void DPG(int knn_candidate_size, int point_neighbor_num); 
 
     void Reverse();
 
@@ -117,6 +120,10 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
                    std::vector<std::string>& search_result);
 
     int SearchKnn(const PointType& query,
+                   const util::GraphSearchParameter& search_param,
+                   IdList& search_result);
+
+    int SearchKnnBk(const PointType& query,
                    const util::GraphSearchParameter& search_param,
                    IdList& search_result);
 
@@ -332,8 +339,46 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::ExtractIndex() {
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
+void GraphIndex<PointType, DistanceFuncType, DistanceType>::DPG(
+    int knn_candidate_size, int point_neighbor_num) {
+
+  std::cout << "DPG prune" << std::endl;
+  point_neighbor_num_ = point_neighbor_num;
+
+  #pragma omp parallel for schedule(static)
+  for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
+    //PointNeighbor& knn = all_point_info_[point_id].knn;
+    PointNeighbor& knn = all_point_index_[point_id].knn;
+    std::vector<int> cnt(knn_candidate_size, 0);
+    for (int i = 0; i < knn_candidate_size-1; i++) {
+      for (int j = i+1; j < knn_candidate_size; j++) {
+        if (distance_func_(GetPoint(knn[i].id), GetPoint(knn[j].id)) < knn[j].distance) {
+          cnt[j]++;
+        }
+      }
+    }
+
+    std::vector<int> cnt_array(cnt);
+    std::sort(cnt_array.begin(), cnt_array.end());
+    int cut_cnt = cnt_array[point_neighbor_num_-1];
+
+    PointNeighbor new_knn(knn_candidate_size);
+    for (int i = 0; i < knn_candidate_size; i++) {
+      if (cnt[i] <= cut_cnt) {
+        new_knn.push(knn[i]);
+      }
+    }
+
+    for (int i = 0; i < point_neighbor_num_; i++) {
+      knn[i] = new_knn[i];
+    }
+    knn.remax_size(point_neighbor_num_);
+  }
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune(
-    double lambda, int point_neighbor_num) {
+    double lambda, int knn_candidate_size, int point_neighbor_num) {
 
   point_neighbor_num_ = point_neighbor_num;
   
@@ -342,24 +387,25 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune(
     //PointNeighbor& knn = all_point_info_[point_id].knn;
     PointNeighbor& knn = all_point_index_[point_id].knn;
 
-    size_t knn_candidate_size = knn.size();
     std::vector<double> max_cosine(knn_candidate_size, 0.0);
     std::vector<double> proximity(knn_candidate_size, 0.0);
 
     DistanceType max_dist = knn[0].distance;
+    DistanceType min_dist = knn[0].distance;
     for (size_t i = 1; i < knn_candidate_size; i++) {
       max_dist = std::max(knn[i].distance, max_dist);
+      min_dist = std::min(knn[i].distance, min_dist);
     }
 
     for (size_t i = 0; i < knn_candidate_size; i++) {
       // for cosine, distance = - similarity
       double dist = static_cast<double>(knn[i].distance);
-      proximity[i] = 1.0 - dist / (max_dist + constant::epsilon);
+      proximity[i] = - dist / (max_dist - min_dist + constant::epsilon);
     }
 
     // select i-th neighbors
     for (size_t i = 1; i < point_neighbor_num_; i++) {
-      // update divisity score
+      // update diversity score
       PointType added_dir = GetPoint(knn[i-1].id) - GetPoint(point_id);
       PointType added_dir_norm = added_dir.normalized();
       for (size_t j = i; j < knn_candidate_size; j++) {
@@ -372,7 +418,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune(
       double max_mmr = 0.0;
       int max_mmr_id = -1;
       for (size_t j = i; j < knn_candidate_size; j++) {
-        double mmr = lambda * proximity[j] - (1 - lambda) * (0.5 + 0.5*max_cosine[j]);
+        double mmr = (1 - lambda) * proximity[j] + lambda * 0.5 * (-max_cosine[j]);
         if (max_mmr_id == -1 || max_mmr < mmr) {
           max_mmr_id = j;
           max_mmr = mmr;
@@ -556,6 +602,67 @@ int GraphIndex<PointType, DistanceFuncType, DistanceType>::UpdatePointKnn(
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 int GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
+    const PointType& query, const util::GraphSearchParameter& search_param,
+    IdList& search_result) {
+
+  if (!this->have_built_) {
+    throw IndexBuildError("Graph index hasn't been built!");
+  }
+    
+  int num_cnt = 0;
+  DynamicBitset visited_point_flag(PointSize(), 0);
+
+  util::IntRandomGenerator int_rand(0, PointSize()-1);
+  size_t random_start = int_rand.Random();
+
+  PointNeighbor result_candidates(search_param.search_k);
+  
+  for (size_t random_index = random_start; 
+              random_index < random_start + search_param.search_k; random_index++) {
+    IntIndex start_point_id = shuffle_point_id_list_[random_index % PointSize()];
+    visited_point_flag[start_point_id] = 1;
+    DistanceType dist = distance_func_(GetPoint(start_point_id), query);
+    num_cnt++;
+    result_candidates.insert(PointDistancePairItem(start_point_id, dist, true));
+  }
+  
+  size_t start_index = 0;
+  while (start_index < search_param.search_k) {
+    auto& current_point = result_candidates[start_index];
+    if (current_point.flag == false) {
+      start_index++;
+      continue;
+    }
+
+    current_point.flag = false;
+    PointNeighbor& knn = all_point_index_[current_point.id].knn;
+
+    for (size_t i = 0; i < knn.size(); i++) {
+      IntIndex neighbor_id = knn[i].id;
+      if (visited_point_flag[neighbor_id]) {
+        continue;
+      }
+      visited_point_flag[neighbor_id] = 1;
+      DistanceType neighbor_dist = distance_func_(GetPoint(neighbor_id), query);
+      num_cnt++;
+
+      size_t update_pos = result_candidates.insert(PointDistancePairItem(neighbor_id, neighbor_dist, true));
+      if (update_pos <= start_index) {
+        start_index = update_pos;
+      }
+    }
+  }
+    
+  search_result.clear();
+  for (size_t i = 0; i < result_candidates.effect_size(search_param.k); i++) {
+    search_result.push_back(result_candidates[i].id);
+  }
+
+  return num_cnt;
+}
+
+template <typename PointType, typename DistanceFuncType, typename DistanceType>
+int GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnnBk(
     const PointType& query, const util::GraphSearchParameter& search_param,
     IdList& search_result) {
 

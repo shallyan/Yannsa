@@ -40,7 +40,7 @@ void LoadEmbeddingData(const string& file_path,
     while (one_word_vec_stream >> value) { 
       point[dim_count++] = value;
     }
-    point.normalize();
+    //point.normalize();
 
     //check dim num
     assert(dim_count == vec_dim);
