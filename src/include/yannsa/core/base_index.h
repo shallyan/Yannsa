@@ -42,8 +42,20 @@ class BaseIndex {
     BaseIndex(DatasetPtr& dataset_ptr) :
               dataset_ptr_(dataset_ptr), have_built_(false) {}
 
-    inline bool HaveBuilt() {
-      return have_built_;
+    inline void CheckIndexIsNotBuilt() {
+      if (have_built_) {
+        throw IndexBuildError("index has already been built!");
+      }
+    }
+
+    inline void CheckIndexIsBuilt() {
+      if (!have_built_) {
+        throw IndexBuildError("index has not been built!");
+      }
+    }
+
+    inline void SetIndexBuiltFlag() {
+      have_built_ = true;
     }
 
     virtual void Build() {} 
@@ -53,7 +65,7 @@ class BaseIndex {
   protected:
     DatasetPtr dataset_ptr_;
 
-    // whether have built index
+    // whether index has been built
     bool have_built_;
 };
 

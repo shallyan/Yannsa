@@ -11,12 +11,6 @@ EXAMPLE_ROOT=example
 index : $(EXAMPLE_ROOT)/index.cc
 	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
 
-extend_index : $(EXAMPLE_ROOT)/extend_index.cc
-	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
-
-dpg_index : $(EXAMPLE_ROOT)/dpg_index.cc
-	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
-
 search: $(EXAMPLE_ROOT)/search.cc
 	$(CXX) $(EXAMPLE_FLAGS) -I $(YANNSA_INC) -I $(THIRD_PARTY_INC) -o $@ $^
 

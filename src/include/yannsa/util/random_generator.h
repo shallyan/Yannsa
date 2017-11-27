@@ -11,7 +11,7 @@ namespace util {
 class IntRandomGenerator {
   public:
     IntRandomGenerator(int begin, int end) 
-        : distribution_generator_(begin, end), random_generator_(/*std::random_device()()*/0) {
+        : distribution_generator_(begin, end), random_generator_(std::random_device()()) {
     }
 
     int Random() {
