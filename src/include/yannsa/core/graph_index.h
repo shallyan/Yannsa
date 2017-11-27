@@ -512,7 +512,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::SearchKnn(
   util::IntRandomGenerator int_rand(0, PointSize()-1);
   size_t random_start = int_rand.Random();
 
-  PointNeighbor result_candidates(search_param.search_K);
+  PointNeighbor result_candidates(std::max(search_param.search_K, search_param.K));
   
   for (size_t random_index = random_start; 
               random_index < random_start + search_param.search_K; random_index++) {
