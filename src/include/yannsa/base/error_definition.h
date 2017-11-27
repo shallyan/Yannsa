@@ -26,6 +26,11 @@ class IndexBuildError : public YannsaError {
     IndexBuildError(const std::string& error_msg) : YannsaError(error_msg) {}
 };
 
+class IndexReadError : public YannsaError {
+  public:
+    IndexReadError(const std::string& error_msg) : YannsaError(error_msg) {}
+};
+
 } // namespace yannsa
 
 #endif

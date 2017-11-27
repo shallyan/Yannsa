@@ -168,28 +168,33 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LoadIndex(
 
   Clear();
 
-  size_t total_cnt = 0;
-  size_t max_cnt = 0;
+  IntIndex total_cnt = 0;
+  IntIndex max_cnt = 0;
 
-  std::ifstream load_file(file_path);
-  std::string buff;
-  while (std::getline(load_file, buff)) {
-    std::stringstream point_info_stream(buff);
-    size_t neighbor_num;
-    point_info_stream >> neighbor_num;
+  std::ifstream load_file(file_path, std::ios::binary);
+  int magic_number = 0;
+  load_file.read(reinterpret_cast<char*>(&magic_number), sizeof(int));
+  if (magic_number != constant::magic_number) {
+    throw IndexReadError("index is corrupted!");
+  }
+
+  IntIndex point_number = 0;
+  load_file.read(reinterpret_cast<char*>(&point_number), sizeof(IntIndex));
+
+  all_point_index_.resize(point_number);
+  IntIndex neighbor_num = 0;
+  for (IntIndex point_id = 0; point_id < point_number; point_id++) {
+    load_file.read(reinterpret_cast<char*>(&neighbor_num), sizeof(IntIndex));
 
     max_cnt = std::max(max_cnt, neighbor_num);
     total_cnt += neighbor_num;
 
-    IdList knn_list;
-    knn_list.reserve(neighbor_num);
-    IntIndex point_id;
-    for (size_t i = 0; i < neighbor_num; i++) {
-      point_info_stream >> point_id;
-      knn_list.push_back(point_id);
-    }
+    IdList& knn_list = all_point_index_[point_id];
+    knn_list.resize(neighbor_num);
 
-    all_point_index_.push_back(knn_list);
+    for (size_t i = 0; i < neighbor_num; i++) {
+      load_file.read(reinterpret_cast<char*>(&knn_list[i]), sizeof(IntIndex));
+    }
   }
 
   std::cout << "Point num: " << all_point_index_.size() << std::endl;
@@ -203,22 +208,30 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LoadIndex(
 
   std::random_shuffle(shuffle_point_id_list_.begin(), shuffle_point_id_list_.end());
 
-  this->have_built_ = true;
+  this->SetIndexBuiltFlag();
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::SaveIndex(
     const std::string file_path) {
 
-  std::ofstream save_file(file_path);
-  // knn_size neighbor1 neighbor2 
+  std::ofstream save_file(file_path, std::ios::binary);
+  // magic number
+  int magic_number = constant::magic_number;
+  save_file.write(reinterpret_cast<char*>(&magic_number), sizeof(int));
+  // all point number
+  IntIndex point_number = PointSize();
+  save_file.write(reinterpret_cast<char*>(&point_number), sizeof(IntIndex));
+
+  // neighbor_num neighbor1 neighbor2 
   for (IntIndex point_id = 0; point_id < PointSize(); point_id++) {
     const IdList& knn_list = all_point_index_[point_id];
-    save_file << knn_list.size() << " ";
-    for (auto neighbor_id : knn_list) {
-      save_file << neighbor_id << " ";
+    IntIndex neighbor_num = knn_list.size();
+    save_file.write(reinterpret_cast<char*>(&neighbor_num), sizeof(IntIndex));
+
+    for (IntIndex neighbor_id : knn_list) {
+      save_file.write(reinterpret_cast<char*>(&neighbor_id), sizeof(IntIndex));
     }
-    save_file << std::endl;
   }
   save_file.close();
 }

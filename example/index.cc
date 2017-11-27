@@ -14,7 +14,7 @@ using namespace yannsa::wrapper;
 
 int main(int argc, char** argv) {
   if (argc != 7) {
-    cout << "binary -data_path -index_save_path -k"
+    cout << "binary -data_path -index_save_path -k "
          << "-join_k -refine_iter_num -lambda "
          << endl;
     return 0;
