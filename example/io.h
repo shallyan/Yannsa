@@ -12,8 +12,9 @@ using namespace std;
 using namespace yannsa;
 using namespace yannsa::wrapper;
 
+template<typename DataType> 
 void LoadBinaryData(const string& file_path,
-                    DatasetPtr<float>& dataset_ptr) { 
+                    DatasetPtr<DataType>& dataset_ptr) { 
 
   ifstream in_file(file_path, ios::binary);
 
@@ -27,10 +28,10 @@ void LoadBinaryData(const string& file_path,
   in_file.seekg(0, ios::beg);
   for (IntIndex point_id = 0; point_id < point_num; point_id++) {
     in_file.seekg(4, ios::cur);
-    PointVector<float> point(point_dim);
-    float value = 0.0;
+    PointVector<DataType> point(point_dim);
+    DataType value = 0;
     for (int d = 0; d < point_dim; d++) {
-      in_file.read(reinterpret_cast<char*>(&value), sizeof(float));
+      in_file.read(reinterpret_cast<char*>(&value), sizeof(DataType));
       point[d] = value;
     }
 

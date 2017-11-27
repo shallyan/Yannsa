@@ -3,12 +3,12 @@
 #include "yannsa/wrapper/index_helper.h"
 #include "io.h"
 #include <iostream>
+#include <set>
 #include <fstream>
 #include <utility>
 #include <string>
 #include <vector>
 #include <omp.h>
-#include <ctime>
 
 using namespace std;
 using namespace yannsa;
@@ -17,22 +17,23 @@ using namespace yannsa::wrapper;
 
 int main(int argc, char** argv) {
   if (argc != 5) {
-    cout << "binary -data_path -index_path "
-         << "-query_path -search_result_path "
+    cout << "binary -data_path -index_path -query_path -ground_truth_path"
          << endl;
     return 0;
   }
   string data_path = argv[1];
   string index_path = argv[2];
   string query_path = argv[3];
-  string search_result_path = argv[4];
+  string ground_truth_path = argv[4];
 
   util::Log("Load data");
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
-  LoadBinaryData(data_path, dataset_ptr);
+  LoadBinaryData<float>(data_path, dataset_ptr);
   DatasetPtr<float> query_ptr(new Dataset<float>());
-  LoadBinaryData(query_path, query_ptr);
+  LoadBinaryData<float>(query_path, query_ptr);
+  DatasetPtr<IntIndex> ground_truth_ptr(new Dataset<IntIndex>());
+  LoadBinaryData<IntIndex>(ground_truth_path, ground_truth_ptr);
 
   util::Log("Load data done");
   
@@ -51,28 +52,27 @@ int main(int argc, char** argv) {
     search_param.K = K;
     search_param.search_K = search_K;
 
-    vector<vector<string> > search_result(query_ptr->size());
-
-    string prompt = "Before search: ";
-    prompt += "K = " + to_string(K) + " search_K = " + to_string(search_K);
-    util::Log(prompt);
-    clock_t start_time = clock();
+    vector<vector<string> > search_results(query_ptr->size());
+    #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < query_ptr->size(); i++) {
-      graph_index_ptr->SearchKnn((*query_ptr)[i], search_param, search_result[i]);
+      graph_index_ptr->SearchKnn((*query_ptr)[i], search_param, search_results[i]);
     }
-    util::Log("End search");
-    clock_t end_time = clock();
-    cout << "cost time: " << (double)(end_time - start_time) / CLOCKS_PER_SEC << "s" << endl;
 
-    ofstream result_file(search_result_path);
+    // evaluate
+    int hit_cnt = 0;
     for (size_t i = 0; i < query_ptr->size(); i++) {
-      result_file << query_ptr->GetKeyById(i) << " ";
-      for (auto nn : search_result[i]) {
-        result_file << nn << " ";
+      set<IntIndex> rtn_results, true_results;
+      for (size_t j = 0; j < K; j++) {
+        rtn_results.insert(stoi(search_results[i][j]));
+        true_results.insert((*ground_truth_ptr)[i][j]);
       }
-      result_file << endl;
+
+      vector<IntIndex> hit_results;
+      set_intersection(rtn_results.begin(), rtn_results.end(),
+                       true_results.begin(), true_results.end(), back_inserter(hit_results));
+      hit_cnt += hit_results.size();
     }
-    result_file.close();
+    cout << K << "-NN Precision: " << hit_cnt * 1.0 / (query_ptr->size() * K) << endl;
   }
 
   return 0;
