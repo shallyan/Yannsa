@@ -30,9 +30,9 @@ int main(int argc, char** argv) {
   util::Log("Load data");
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
-  LoadEmbeddingData(data_path, dataset_ptr);
+  LoadBinaryData(data_path, dataset_ptr);
   DatasetPtr<float> query_ptr(new Dataset<float>());
-  LoadEmbeddingData(query_path, query_ptr);
+  LoadBinaryData(query_path, query_ptr);
 
   util::Log("Load data done");
   

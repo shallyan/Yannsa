@@ -12,42 +12,36 @@ using namespace std;
 using namespace yannsa;
 using namespace yannsa::wrapper;
 
-void LoadEmbeddingData(const string& file_path,
-                       DatasetPtr<float>& dataset_ptr) { 
+void LoadBinaryData(const string& file_path,
+                    DatasetPtr<float>& dataset_ptr) { 
 
-  ifstream in_file(file_path.c_str());
+  ifstream in_file(file_path, ios::binary);
 
-  string buff;
-  //read word and dim number
-  int vec_num = 0, vec_dim = 0;
-  getline(in_file, buff);
-  stringstream count_stream(buff);
-  count_stream >> vec_num >> vec_dim; 
-  cout << "vec num: " << vec_num << "\t" 
-       << "vec dim: " << vec_dim << endl;
+  int point_dim = 0;
+  in_file.read(reinterpret_cast<char*>(&point_dim), sizeof(int));
 
-  while (getline(in_file, buff)) {
-    stringstream one_word_vec_stream(buff);
+  in_file.seekg(0, ios::end);
+  IntIndex point_num = in_file.tellg() / (4 + point_dim * 4);
 
-    //read word firstly
-    string word;
-    one_word_vec_stream >> word;
-
-    //then read value
-    PointVector<float> point(vec_dim);
-    double value = 0.0;
-    int dim_count = 0;
-    while (one_word_vec_stream >> value) { 
-      point[dim_count++] = value;
+  cout << file_path << " has " << point_num << " points and " << point_dim << " dims" << endl;
+  in_file.seekg(0, ios::beg);
+  for (IntIndex point_id = 0; point_id < point_num; point_id++) {
+    in_file.seekg(4, ios::cur);
+    PointVector<float> point(point_dim);
+    float value = 0.0;
+    for (int d = 0; d < point_dim; d++) {
+      in_file.read(reinterpret_cast<char*>(&value), sizeof(float));
+      point[d] = value;
     }
-    //point.normalize();
 
-    //check dim num
-    assert(dim_count == vec_dim);
-
-    dataset_ptr->insert(word, point);
+    stringstream key_str;
+    key_str << point_id;
+    string key;
+    key_str >> key;
+    dataset_ptr->insert(key, point);
   }
 
+  in_file.close();
   cout << "create dataset done, data num: " 
        << dataset_ptr->size() << endl;
 }

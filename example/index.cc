@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
   index_param.lambda = atof(argv[6]);
 
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
-  LoadEmbeddingData(data_path, dataset_ptr);
+  LoadBinaryData(data_path, dataset_ptr);
   
   EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
 
