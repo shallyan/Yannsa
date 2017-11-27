@@ -15,38 +15,38 @@ TEST(SortedArrayTest, Create) {
 TEST(SortedArrayTest, SortedArray) {
   SortedArray<int> h(3);
   ASSERT_EQ(h.size(), 0);
-  h.insert_array(3);
+  h.insert(3);
   ASSERT_EQ(h.size(), 1);
-  h.insert_array(3);
+  h.insert(3);
   ASSERT_EQ(h.size(), 1);
-  h.insert_array(2);
+  h.insert(2);
   ASSERT_EQ(h.size(), 2);
   ASSERT_EQ(h[0], 2);
   ASSERT_EQ(h[1], 3);
-  h.insert_array(3);
+  h.insert(3);
   ASSERT_EQ(h.size(), 2);
-  h.insert_array(2);
+  h.insert(2);
   ASSERT_EQ(h.size(), 2);
   ASSERT_EQ(h[0], 2);
   ASSERT_EQ(h[1], 3);
-  h.insert_array(3);
+  h.insert(3);
   ASSERT_EQ(h.size(), 2);
-  h.insert_array(5);
+  h.insert(5);
   ASSERT_EQ(h.size(), 3);
   ASSERT_EQ(h[0], 2);
   ASSERT_EQ(h[1], 3);
   ASSERT_EQ(h[2], 5);
-  h.insert_array(5);
+  h.insert(5);
   ASSERT_EQ(h.size(), 3);
   ASSERT_EQ(h[0], 2);
   ASSERT_EQ(h[1], 3);
   ASSERT_EQ(h[2], 5);
-  h.insert_array(6);
+  h.insert(6);
   ASSERT_EQ(h.size(), 3);
   ASSERT_EQ(h[0], 2);
   ASSERT_EQ(h[1], 3);
   ASSERT_EQ(h[2], 5);
-  h.insert_array(4);
+  h.insert(4);
   ASSERT_EQ(h.size(), 3);
   ASSERT_EQ(h[0], 2);
   ASSERT_EQ(h[1], 3);
@@ -55,7 +55,7 @@ TEST(SortedArrayTest, SortedArray) {
   h.remax_size(4);
   ASSERT_EQ(h.size(), 3);
 
-  h.insert_array(5);
+  h.insert(5);
   ASSERT_EQ(h.size(), 4);
   ASSERT_EQ(h[0], 2);
   ASSERT_EQ(h[1], 3);
@@ -63,7 +63,7 @@ TEST(SortedArrayTest, SortedArray) {
   ASSERT_EQ(h[3], 5);
 
   h.remax_size(5);
-  h.insert_array(1);
+  h.insert(1);
   ASSERT_EQ(h.size(), 5);
   ASSERT_EQ(h[0], 1);
   ASSERT_EQ(h[1], 2);

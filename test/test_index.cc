@@ -28,9 +28,6 @@ TEST(IndexTest, CreateGraphIndex) {
 
   dataset_ptr->insert("a", point_a);
   ASSERT_EQ(dataset_ptr->size(), 1);
-
-  DotGraphIndex<float> index(dataset_ptr);
-  ASSERT_FALSE(index.HaveBuilt());
 }
 
 TEST(IndexTest, BruteForceIndexSearch) {
