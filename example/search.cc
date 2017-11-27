@@ -42,19 +42,19 @@ int main(int argc, char** argv) {
   graph_index_ptr->LoadIndex(index_path);
   util::Log("Load index done");
 
-  int k, search_k;
+  int K, search_K;
   while (true) {
-    cout << "Input k and search_k: ";
-    cin >> k >> search_k;
+    cout << "Input K and search_K: ";
+    cin >> K >> search_K;
 
     GraphSearchParameter search_param;
-    search_param.k = k;
-    search_param.search_k = search_k;
+    search_param.K = K;
+    search_param.search_K = search_K;
 
     vector<vector<string> > search_result(query_ptr->size());
 
     string prompt = "Before search: ";
-    prompt += "k = " + to_string(k) + " search_k = " + to_string(search_k);
+    prompt += "K = " + to_string(K) + " search_K = " + to_string(search_K);
     util::Log(prompt);
     clock_t start_time = clock();
     for (size_t i = 0; i < query_ptr->size(); i++) {

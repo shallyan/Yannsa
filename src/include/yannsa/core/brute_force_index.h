@@ -25,19 +25,19 @@ class BruteForceIndex : public BaseIndex<PointType, DistanceFuncType, DistanceTy
   public:
     BruteForceIndex(typename BaseClass::DatasetPtr& dataset_ptr) : BaseClass(dataset_ptr) {}
 
-    void SearchKnn(const PointType& query, int k, std::vector<std::string>& search_result) {
+    void SearchKnn(const PointType& query, int K, std::vector<std::string>& search_result) {
       search_result.clear();
 
       DistanceFuncType distance_func;
-      util::SortedArray<PointDistancePairItem> k_candidates(k); 
+      util::SortedArray<PointDistancePairItem> K_candidates(K); 
 
       for (IntIndex i = 0; i < this->dataset_ptr_->size(); i++) { 
         DistanceType dist = distance_func((*this->dataset_ptr_)[i], query); 
-        k_candidates.insert(PointDistancePairItem(i, dist));
+        K_candidates.insert(PointDistancePairItem(i, dist));
       } 
 
-      auto candidate_iter = k_candidates.begin();
-      for (; candidate_iter != k_candidates.end(); candidate_iter++) {
+      auto candidate_iter = K_candidates.begin();
+      for (; candidate_iter != K_candidates.end(); candidate_iter++) {
         search_result.push_back(this->dataset_ptr_->GetKeyById(candidate_iter->id));
       }
     }

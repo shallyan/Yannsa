@@ -34,12 +34,9 @@
 build_test/*
 yannsa_test
 index
-extend_index
 search
 bruteforce
 tags
-
-count.sh
 
 nohup.out
 
