@@ -1,5 +1,4 @@
 #include "yannsa/util/parameter.h"
-#include "yannsa/util/logging.h"
 #include "yannsa/wrapper/index_helper.h"
 #include "io.h"
 #include <iostream>
@@ -26,22 +25,21 @@ int main(int argc, char** argv) {
   string query_path = argv[3];
   string ground_truth_path = argv[4];
 
-  util::Log("Load data");
-
+  // load dataset
   DatasetPtr<float> dataset_ptr(new Dataset<float>());
   LoadBinaryData<float>(data_path, dataset_ptr);
+
+  // load queries 
   DatasetPtr<float> query_ptr(new Dataset<float>());
   LoadBinaryData<float>(query_path, query_ptr);
+
+  // load ground truth 
   DatasetPtr<IntIndex> ground_truth_ptr(new Dataset<IntIndex>());
   LoadBinaryData<IntIndex>(ground_truth_path, ground_truth_ptr);
-
-  util::Log("Load data done");
   
+  // load index
   EuclideanGraphIndexPtr<float> graph_index_ptr(new EuclideanGraphIndex<float>(dataset_ptr));
-
-  util::Log("Load index");
   graph_index_ptr->LoadIndex(index_path);
-  util::Log("Load index done");
 
   int K, search_K;
   while (true) {

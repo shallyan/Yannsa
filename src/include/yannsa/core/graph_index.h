@@ -15,7 +15,6 @@
 #include <string>
 #include <memory>
 #include <algorithm>
-#include <iostream>
 #include <fstream>
 #include <sstream>
 #include <cstdlib>
@@ -166,6 +165,8 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::LoadIndex(
     const std::string file_path) {
 
+  util::Log("load the index from " + file_path);
+
   Clear();
 
   IntIndex total_cnt = 0;
@@ -197,9 +198,9 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LoadIndex(
     }
   }
 
-  std::cout << "Point num: " << all_point_index_.size() << std::endl;
-  std::cout << "Max knn: " << max_cnt << std::endl;
-  std::cout << "Average knn: " << total_cnt*1.0/PointSize() << std::endl;
+  util::Log("Point num: " + std::to_string(all_point_index_.size()) + 
+            " Max nn: " + std::to_string(max_cnt) +
+            " Average nn: " + std::to_string(total_cnt * 1.0 / PointSize()));
 
   // shuffle data
   for (IntIndex i = 0; i < PointSize(); i++) {
@@ -215,6 +216,7 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::SaveIndex(
     const std::string file_path) {
 
+  util::Log("save the index to " + file_path);
   std::ofstream save_file(file_path, std::ios::binary);
   // magic number
   int magic_number = constant::magic_number;
@@ -242,18 +244,21 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Build(
 
   this->CheckIndexIsNotBuilt();
 
-  util::Log("before build");
-
   Clear();
 
+  util::Log("compute initial neighbor candidates");
   BuildKnnGraphIndex(index_param);
+
+  util::Log("re-rank neighbor candidates");
   Prune(index_param.lambda);
+
+  util::Log("reverse k-diverse nearest neighbors");
   Reverse();
 
   ExtractIndex();
 
   this->SetIndexBuiltFlag();
-  util::Log("end build");
+  util::Log("complete the building of k-DNN graph");
 }
 
 template <typename PointType, typename DistanceFuncType, typename DistanceType>
@@ -262,12 +267,10 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::BuildKnnGraphIndex(
 
   Init(index_param);
 
-  util::Log("before init");
   InitPointNeighborInfo();
 
-  util::Log("before refine");
   for (size_t loop = 0; loop < index_param.refine_iter_num; loop++) {
-    util::Log(std::to_string(loop) + " iteration ");
+    util::Log("iteration " + std::to_string(loop));
     UpdatePointNeighborInfo();
     LocalJoin();
   }

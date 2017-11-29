@@ -1,5 +1,4 @@
 #include "yannsa/util/parameter.h"
-#include "yannsa/util/logging.h"
 #include "yannsa/wrapper/index_helper.h"
 #include "io.h"
 #include <iostream>
