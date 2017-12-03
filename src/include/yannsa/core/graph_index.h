@@ -26,9 +26,6 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType =
 class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
   public:
     typedef BaseIndex<PointType, DistanceFuncType, DistanceType> BaseClass;
-    typedef typename BaseClass::Dataset Dataset;
-    typedef typename BaseClass::DatasetPtr DatasetPtr;
-    typedef typename BaseClass::PointVector PointVector;
 
   private:
     // point
@@ -103,6 +100,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
   private:
     void Init(const util::GraphIndexParameter& index_param);
+    
     void Clear(); 
 
     void BuildKnnGraphIndex(const util::GraphIndexParameter& index_param); 
@@ -124,12 +122,15 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     int UpdatePointKnn(IntIndex point1, IntIndex point2);
 
     void InitPointNeighborInfo();
+    
     void UpdatePointNeighborInfo(); 
+
     int LocalJoin();
 
   private:
     // index
     int k_;
+
     int join_k_;
 
     std::vector<PointInfo> all_point_info_;
@@ -316,7 +317,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune(double lambda)
     }
 
     for (size_t i = 0; i < knn_candidate_size; i++) {
-      // for cosine, distance = - similarity
       double dist = static_cast<double>(knn[i].distance);
       proximity[i] = - dist / (max_dist - min_dist + constant::epsilon);
     }
