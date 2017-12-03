@@ -70,7 +70,7 @@ int main(int argc, char** argv) {
                        true_results.begin(), true_results.end(), back_inserter(hit_results));
       hit_cnt += hit_results.size();
     }
-    cout << K << "-NN Precision: " << hit_cnt * 1.0 / (query_ptr->size() * K) << endl;
+    cout << "Average " << K << "-NN precision of " << query_ptr->size() << " queries: " << hit_cnt * 1.0 / (query_ptr->size() * K) << endl;
   }
 
   return 0;

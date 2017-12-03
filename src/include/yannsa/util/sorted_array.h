@@ -46,24 +46,28 @@ class SortedArray {
       }
     }
 
+    inline const PointType& operator[](int i) const {
+      return sorted_array_[i];
+    }
+
     inline PointType& operator[](int i) {
       return sorted_array_[i];
     }
 
     // assume at lease one element in array
-    inline const PointType& min_array() {
+    inline const PointType& min_array() const {
       return sorted_array_[0];
     }
 
-    inline const PointType& max_array() {
+    inline const PointType& max_array() const {
       return sorted_array_[size()-1];
     }
 
-    inline iterator begin() {
+    inline const iterator begin() const {
       return sorted_array_.begin();
     }
 
-    inline iterator end() {
+    inline const iterator end() const {
       return sorted_array_.end();
     }
 

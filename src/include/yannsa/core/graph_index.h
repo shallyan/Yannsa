@@ -103,6 +103,7 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
 
   private:
     void Init(const util::GraphIndexParameter& index_param);
+
     void Clear(); 
 
     void BuildKnnGraphIndex(const util::GraphIndexParameter& index_param); 
@@ -124,7 +125,9 @@ class GraphIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
     int UpdatePointKnn(IntIndex point1, IntIndex point2);
 
     void InitPointNeighborInfo();
+
     void UpdatePointNeighborInfo(); 
+
     int LocalJoin();
 
   private:
@@ -316,7 +319,6 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Prune(double lambda)
     }
 
     for (size_t i = 0; i < knn_candidate_size; i++) {
-      // for cosine, distance = - similarity
       double dist = static_cast<double>(knn[i].distance);
       proximity[i] = - dist / (max_dist - min_dist + constant::epsilon);
     }

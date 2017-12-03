@@ -36,19 +36,19 @@ class Container {
       key2id_.clear();
     }
 
-    inline PointType& operator[] (IntIndex i) {
+    inline const PointType& operator[] (IntIndex i) const {
       return id2point_[i];
     }
 
-    inline std::string GetKeyById(IntIndex i) {
+    inline const std::string& GetKeyById(IntIndex i) const {
       return id2key_[i];
     }
 
-    inline iterator begin() {
+    inline const iterator begin() const {
       return id2point_.begin();
     }
 
-    inline iterator end() {
+    inline const iterator end() const {
       return id2point_.end();
     }
 
