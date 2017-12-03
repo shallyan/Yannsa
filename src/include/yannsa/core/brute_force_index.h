@@ -15,6 +15,9 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType =
 class BruteForceIndex : public BaseIndex<PointType, DistanceFuncType, DistanceType> {
   public:
     typedef BaseIndex<PointType, DistanceFuncType, DistanceType> BaseClass;
+    typedef typename BaseClass::Dataset Dataset;
+    typedef typename BaseClass::DatasetPtr DatasetPtr;
+    typedef typename BaseClass::PointVector PointVector;
 
   private:
     typedef PointDistancePair<IntIndex, DistanceType> PointDistancePairItem;
