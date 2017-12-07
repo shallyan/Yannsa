@@ -16,14 +16,15 @@ class Container {
     typedef typename std::vector<PointType>::iterator iterator;
 
   public:
-    void insert(const std::string& key, const PointType& new_point) {
+    IntIndex insert(const std::string& key, const PointType& point_vec) {
       if (key2id_.find(key) != key2id_.end()) {
         throw KeyExistError("Key already exists!");
       }
 
       key2id_[key] = id2point_.size();
-      id2point_.push_back(new_point);
+      id2point_.push_back(point_vec);
       id2key_.push_back(key);
+      return id2key_.size()-1;
     }
 
     inline size_t size() const {
@@ -42,6 +43,10 @@ class Container {
 
     inline const std::string& GetKeyById(IntIndex i) const {
       return id2key_[i];
+    }
+
+    inline IntIndex GetIdByKey(const std::string& key) {
+      return key2id_[key];
     }
 
     inline const iterator begin() const {

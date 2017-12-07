@@ -25,6 +25,10 @@ class BruteForceIndex : public BaseIndex<PointType, DistanceFuncType, DistanceTy
   public:
     BruteForceIndex(typename BaseClass::DatasetPtr& dataset_ptr) : BaseClass(dataset_ptr) {}
 
+    void AddNewPoint(const std::string& key, const PointType& point_vec) {
+      this->dataset_ptr->insert(key, point_vec);
+    }
+
     void SearchKnn(const PointType& query, int K, std::vector<std::string>& search_result) {
       search_result.clear();
 

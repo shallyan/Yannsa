@@ -57,9 +57,6 @@ class BaseIndex {
       have_built_ = true;
     }
 
-    virtual void Build() {} 
-
-    virtual void Clear() {} 
   protected:
     DatasetPtr dataset_ptr_;
 
