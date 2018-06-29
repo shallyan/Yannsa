@@ -1,7 +1,7 @@
 #ifndef YANNSA_REPRESENTATION_H
 #define YANNSA_REPRESENTATION_H 
 
-#include <eigen/Dense>
+#include <Eigen/Dense>
 #include "yannsa/util/container.h"
 #include <memory>
 
