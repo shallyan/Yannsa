@@ -10,7 +10,7 @@ namespace wrapper {
 
 // use Eigen to represent vector 
 template <typename CoordinateType>
-using PointVector = Eigen::Matrix<CoordinateType, Eigen::Dynamic, 1, Eigen::ColMajor>;
+using PointVector = Eigen::Matrix<CoordinateType, 1, Eigen::Dynamic, Eigen::RowMajor>;
 
 template <typename CoordinateType>
 using Dataset = util::Container<PointVector<CoordinateType> > ; 

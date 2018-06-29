@@ -235,6 +235,8 @@ template <typename PointType, typename DistanceFuncType, typename DistanceType>
 void GraphIndex<PointType, DistanceFuncType, DistanceType>::SaveIndex(
     const std::string file_path) {
 
+  this->CheckIndexIsBuilt();
+
   util::Log("save the index to " + file_path);
   std::ofstream save_file(file_path, std::ios::binary);
   // magic number
