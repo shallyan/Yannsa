@@ -37,3 +37,14 @@ Each point of k-DNN graph is connected to a set of neighbors that are close in d
 - cd example
 - python index.py
 - python search.py
+
+## Parameters
+### Index
+- k: neighbor number of each point, usually 20 is good enough.
+- join_k: neighbor selection range, usually 4 times of k, i.e., 80.
+- refine_iter_num: iteration number, usually 20.
+- lambda: weight between precision and diversity, usually 0.15 ~ 0.20.
+
+### Search
+- K: return approximate K nearest neighbors.
+- search_K: search range. The bigger, the more precise, the more cost. 
