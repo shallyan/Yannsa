@@ -1,5 +1,5 @@
 # Yannsa
-Yet another nearest neighbor search algorithms, now including k-diverse nearest neighbor (k-DNN) graph.
+Yet another nearest neighbor search algorithms, now including [k-diverse nearest neighbor (k-DNN) graph](https://www.aaai.org/ocs/index.php/AAAI/AAAI18/paper/viewFile/16132/16525).
 
 ## k-DNN Graph
 Approximate nearest neighbor search is a fundamental problem and has been studied for a few decades. Recently graph-based indexing methods have demonstrated their great efficiency, whose main idea is to construct neighborhood graph offline and perform a greedy search starting from some sampled points of the graph online. 
@@ -12,6 +12,9 @@ Each point of k-DNN graph is connected to a set of neighbors that are close in d
 - Fast and fully parallel index construction.
 - Fast approximate nearest neighbor search.
 - New data insertion .
+
+## Future Work
+Now k-DNN Graph search from randomly sampled points, the efficiency can be significantly improved via providing a better start point with other data structure.
 
 ## Parameters
 ### Index
