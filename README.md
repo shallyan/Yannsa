@@ -9,9 +9,20 @@ Most existing graph-based methods focus on building either the precise k-NN grap
 Each point of k-DNN graph is connected to a set of neighbors that are close in distance while diverse in direction. In this way, we can balance the precision and diversity of the neighborhood graph to keep good exploitation and exploration abilities simultaneously. We take a novel view of the graph construction process as search result diversification in IR, which considers each point as the query and the neighbor candidates as documents, and re-ranks the neighbors based on an adaption of the maximal marginal relevance criterion. 
 
 ## Features
-- Fast and fully parallel index construction
-- Fast approximate nearest neighbor search
+- Fast and fully parallel index construction.
+- Fast approximate nearest neighbor search.
+- New data insertion .
 
+## Parameters
+### Index
+- k: neighbor number of each point, usually 20 is good enough.
+- join_k: neighbor selection range, usually 4 times of k, i.e., 80.
+- refine_iter_num: iteration number, usually 20.
+- lambda: weight between precision and diversity, usually 0.15 ~ 0.20.
+
+### Search
+- K: return approximate K nearest neighbors.
+- search_K: search range. The bigger, the more precise, the more cost. 
 ## C++ Example
 - Download ANN_SIFT1M dataset from http://corpus-texmex.irisa.fr
 - Compile
@@ -38,13 +49,3 @@ Each point of k-DNN graph is connected to a set of neighbors that are close in d
 - python index.py
 - python search.py
 
-## Parameters
-### Index
-- k: neighbor number of each point, usually 20 is good enough.
-- join_k: neighbor selection range, usually 4 times of k, i.e., 80.
-- refine_iter_num: iteration number, usually 20.
-- lambda: weight between precision and diversity, usually 0.15 ~ 0.20.
-
-### Search
-- K: return approximate K nearest neighbors.
-- search_K: search range. The bigger, the more precise, the more cost. 
