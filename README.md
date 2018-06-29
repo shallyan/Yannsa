@@ -1,7 +1,5 @@
 # Yannsa
-Yet another nearest neighbor search algorithms, now including [k-diverse nearest neighbor (k-DNN) graph](http://shallyan.com/files/AAAI18_xiao.pdf). 
-
-More algorithms would be released later.
+Yet another nearest neighbor search algorithms, now including k-diverse nearest neighbor (k-DNN) graph.
 
 ## k-DNN Graph
 Approximate nearest neighbor search is a fundamental problem and has been studied for a few decades. Recently graph-based indexing methods have demonstrated their great efficiency, whose main idea is to construct neighborhood graph offline and perform a greedy search starting from some sampled points of the graph online. 
@@ -14,7 +12,7 @@ Each point of k-DNN graph is connected to a set of neighbors that are close in d
 - Fast and fully parallel index construction
 - Fast approximate nearest neighbor search
 
-## Example
+## C++ Example
 - Download ANN_SIFT1M dataset from http://corpus-texmex.irisa.fr
 - Compile
   - make index
@@ -25,3 +23,17 @@ Each point of k-DNN graph is connected to a set of neighbors that are close in d
 - Search
   - binary -data_path -index_path -query_path -ground_truth_path
   - ./search sift_base.fvecs sift_index sift_query.fvecs sift_groundtruth.ivecs 
+
+## Python Package 
+### Install
+- cd python_binding
+- python setup.py install
+
+### Manually on Mac
+- g++ -O3 -march=native -fopenmp -shared -std=c++11 -undefined dynamic_lookup `python -m pybind11 --includes` binding.cpp -I ../src/include/ -I ../third_party/ -o yannsa.so
+- cp yannsa.so example
+
+### Example 
+- cd example
+- python index.py
+- python search.py
