@@ -2,9 +2,12 @@ from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 import sys
 import setuptools
+import os
+
+os.environ["CC"] = "g++-6" 
+os.environ["CXX"] = "g++-6"
 
 __version__ = '0.0.1'
-
 
 class get_pybind_include(object):
   """Helper class to determine the pybind11 include path
@@ -78,6 +81,7 @@ class BuildExt(build_ext):
       opts.append('-fvisibility=hidden')
     for ext in self.extensions:
       ext.extra_compile_args = opts
+      ext.extra_link_args = ['-fopenmp']
     build_ext.build_extensions(self)
 
 setup(

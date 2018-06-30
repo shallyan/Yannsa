@@ -45,4 +45,5 @@ data/*
 *.swp
 python_binding/build
 python_binding/var
-python_binding/python_example.egg-info 
+python_binding/yannsa.egg-info 
+python_binding/dist
