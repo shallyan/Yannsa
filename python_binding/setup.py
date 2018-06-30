@@ -70,28 +70,18 @@ def cpp_flag(compiler):
 
 
 class BuildExt(build_ext):
-  """A custom build extension for adding compiler-specific options."""
-  c_opts = {
-    'unix': ['-O3', '-march=native', '-fopenmp'],
-  }
-
-  if sys.platform == 'darwin':
-    c_opts['unix'] += ['-stdlib=libc++', '-mmacosx-version-min=10.7']
-
   def build_extensions(self):
-    ct = self.compiler.compiler_type
-    opts = self.c_opts.get(ct, [])
-    if ct == 'unix':
-      opts.append('-DVERSION_INFO="%s"' % self.distribution.get_version())
-      opts.append(cpp_flag(self.compiler))
-      if has_flag(self.compiler, '-fvisibility=hidden'):
-        opts.append('-fvisibility=hidden')
+    opts = ['-O3', '-march=native', '-fopenmp']
+    opts.append('-DVERSION_INFO="%s"' % self.distribution.get_version())
+    opts.append(cpp_flag(self.compiler))
+    if has_flag(self.compiler, '-fvisibility=hidden'):
+      opts.append('-fvisibility=hidden')
     for ext in self.extensions:
       ext.extra_compile_args = opts
     build_ext.build_extensions(self)
 
 setup(
-  name='python_example',
+  name='yannsa',
   version=__version__,
   author='Yan Xiao',
   author_email='xiaoyanict@foxmail.com',
