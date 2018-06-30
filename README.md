@@ -39,7 +39,7 @@ Now k-DNN Graph search from randomly sampled points, the efficiency can be signi
   - ./search sift_base.fvecs sift_index sift_query.fvecs sift_groundtruth.ivecs 
 
 ## Python Package 
-### Install
+### Install (python2.7+, python3)
 - cd python_binding
 - python setup.py install
 
