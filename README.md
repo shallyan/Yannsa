@@ -28,7 +28,7 @@ Now k-DNN Graph search from randomly sampled points, the efficiency can be signi
 - search_K: search range. The bigger, the more precise, the more cost. 
 ## C++ Example
 - Download ANN_SIFT1M dataset from http://corpus-texmex.irisa.fr
-- Compile
+- Compile (The compiler must support C++11)
   - make index
   - make search
 - Indexing
@@ -42,10 +42,6 @@ Now k-DNN Graph search from randomly sampled points, the efficiency can be signi
 ### Install
 - cd python_binding
 - python setup.py install
-
-### Manually on Mac
-- g++ -O3 -march=native -fopenmp -shared -std=c++11 -undefined dynamic_lookup `python -m pybind11 --includes` binding.cpp -I ../src/include/ -I ../third_party/ -o yannsa.so
-- cp yannsa.so example
 
 ### Example 
 - cd example
