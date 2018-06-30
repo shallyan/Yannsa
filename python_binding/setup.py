@@ -4,8 +4,8 @@ import sys
 import setuptools
 import os
 
-os.environ["CC"] = "g++-6" 
-os.environ["CXX"] = "g++-6"
+os.environ["CC"] = "g++" 
+os.environ["CXX"] = "g++"
 
 __version__ = '0.0.1'
 

@@ -1,4 +1,4 @@
-CXX=g++-6
+CXX=g++
 CXX_FLAGS=-std=c++11 -O3 -march=native -fopenmp
 
 YANNSA_INC=src/include/
