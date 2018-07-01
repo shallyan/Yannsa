@@ -1,5 +1,5 @@
 # Yannsa
-Yet another nearest neighbor search algorithms, now including [k-diverse nearest neighbor (k-DNN) graph](https://www.aaai.org/ocs/index.php/AAAI/AAAI18/paper/viewFile/16132/16525).
+Yet another nearest neighbor search algorithms, now including k-diverse nearest neighbor (k-DNN) graph.
 
 ## k-DNN Graph
 Approximate nearest neighbor search is a fundamental problem and has been studied for a few decades. Recently graph-based indexing methods have demonstrated their great efficiency, whose main idea is to construct neighborhood graph offline and perform a greedy search starting from some sampled points of the graph online. 
@@ -26,6 +26,7 @@ Now k-DNN Graph search from randomly sampled points, the efficiency can be signi
 ### Search
 - K: return approximate K nearest neighbors.
 - search_K: search range. The bigger, the more precise, the more cost. 
+
 ## C++ Example
 - Download ANN_SIFT1M dataset from http://corpus-texmex.irisa.fr
 - Compile (The compiler must support C++11)
@@ -47,4 +48,3 @@ Now k-DNN Graph search from randomly sampled points, the efficiency can be signi
 - cd example
 - python index.py
 - python search.py
-
