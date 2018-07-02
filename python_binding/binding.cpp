@@ -28,7 +28,7 @@ class Index {
           graph_index_ptr_(new GraphIndexType(dataset_ptr_)) { 
     }
 
-    void InitData(const string file_path) {
+    void InitDataInFVecs(const string file_path) {
       ifstream in_file(file_path, ios::binary);
 
       int point_dim = 0;
@@ -50,6 +50,9 @@ class Index {
           point[d] = value;
         }
 
+        if (is_normalize_) {
+          point.normalize();
+        }
         stringstream key_str;
         key_str << point_id;
         string key;
@@ -61,6 +64,44 @@ class Index {
       cout << "create dataset done, data num: " 
            << dataset_ptr_->size() << endl;
 
+    }
+
+    void InitDataInEmbedding(const string file_path) {
+      ifstream in_file(file_path.c_str());
+
+      string buff;
+      //read word and dim number
+      int vec_num = 0, vec_dim = 0;
+      getline(in_file, buff);
+      stringstream count_stream(buff);
+      count_stream >> vec_num >> vec_dim; 
+      cout << "vec num: " << vec_num << "\t" 
+           << "vec dim: " << vec_dim << endl;
+
+      while (getline(in_file, buff)) {
+        stringstream one_word_vec_stream(buff);
+
+        //read word firstly
+        string word;
+        one_word_vec_stream >> word;
+
+        //then read value
+        PointVector<float> point(vec_dim);
+        double value = 0.0;
+        int dim_count = 0;
+        while (one_word_vec_stream >> value) { 
+          point[dim_count++] = value;
+        }
+
+        if (is_normalize_) {
+          point.normalize();
+        }
+
+        dataset_ptr_->insert(word, point);
+      }
+
+      cout << "create dataset done, data num: " 
+           << dataset_ptr_->size() << endl;
     }
 
     void Build(int k, int join_k, int refine_iter_num, float lambda_value) {
@@ -117,7 +158,8 @@ PYBIND11_MODULE(yannsa, m)
 
   py::class_<Index<EuclideanDistance<float> > >(m, "EuclideanIndex")
     .def(py::init<bool>(), py::arg("is_normalize")=false)
-    .def("init_data", &Index<EuclideanDistance<float> >::InitData, py::arg("file_path"))
+    .def("init_data_fvecs", &Index<EuclideanDistance<float> >::InitDataInFVecs, py::arg("file_path"))
+    .def("init_data_embedding", &Index<EuclideanDistance<float> >::InitDataInEmbedding, py::arg("file_path"))
     .def("build", &Index<EuclideanDistance<float> >::Build, py::arg("k"), py::arg("join_k"), py::arg("refine_iter_num"), py::arg("lambda_value"))
     .def("save_index", &Index<EuclideanDistance<float> >::SaveIndex, py::arg("index_save_path"))
     .def("load_index", &Index<EuclideanDistance<float> >::LoadIndex, py::arg("index_save_path"))
@@ -126,7 +168,8 @@ PYBIND11_MODULE(yannsa, m)
 
   py::class_<Index<DotDistance<float> > >(m, "CosineIndex")
     .def(py::init<bool>(), py::arg("is_normalize")=true)
-    .def("init_data", &Index<DotDistance<float> >::InitData, py::arg("file_path"))
+    .def("init_data_fvecs", &Index<DotDistance<float> >::InitDataInFVecs, py::arg("file_path"))
+    .def("init_data_embedding", &Index<DotDistance<float> >::InitDataInEmbedding, py::arg("file_path"))
     .def("build", &Index<DotDistance<float> >::Build, py::arg("k"), py::arg("join_k"), py::arg("refine_iter_num"), py::arg("lambda_value"))
     .def("save_index", &Index<DotDistance<float> >::SaveIndex, py::arg("index_save_path"))
     .def("load_index", &Index<DotDistance<float> >::LoadIndex, py::arg("index_save_path"))
