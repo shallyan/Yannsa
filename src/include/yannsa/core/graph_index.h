@@ -168,6 +168,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::Init(
   lambda_ = index_param.lambda;
 
   IntIndex max_point_id = this->dataset_ptr_->size();
+  all_point_index_.reserve(max_point_id);
   all_point_info_ = std::vector<PointInfo>(max_point_id, PointInfo(join_k_));
 }
 
@@ -200,6 +201,7 @@ void GraphIndex<PointType, DistanceFuncType, DistanceType>::LoadIndex(
   load_file.read(reinterpret_cast<char*>(&join_k_), sizeof(int));
   load_file.read(reinterpret_cast<char*>(&lambda_), sizeof(double));
 
+  all_point_index_.reserve(point_number);
   all_point_index_.resize(point_number);
   IntIndex neighbor_num = 0;
   for (IntIndex point_id = 0; point_id < point_number; point_id++) {

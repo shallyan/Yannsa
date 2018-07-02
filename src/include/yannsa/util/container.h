@@ -57,6 +57,12 @@ class Container {
       return id2point_.end();
     }
 
+    inline void reserve(IntIndex n) {
+      key2id_.reserve(n);
+      id2key_.reserve(n);
+      id2point_.reserve(n);
+    }
+
   private:
     std::unordered_map<std::string, IntIndex> key2id_;
     std::vector<std::string> id2key_;
