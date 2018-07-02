@@ -78,6 +78,8 @@ class Index {
       cout << "vec num: " << vec_num << "\t" 
            << "vec dim: " << vec_dim << endl;
 
+      dataset_ptr_->reserve(vec_num);
+
       while (getline(in_file, buff)) {
         stringstream one_word_vec_stream(buff);
 
