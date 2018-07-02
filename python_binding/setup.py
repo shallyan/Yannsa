@@ -74,7 +74,7 @@ def cpp_flag(compiler):
 
 class BuildExt(build_ext):
   def build_extensions(self):
-    opts = ['-O3', '-march=native', '-fopenmp']
+    opts = ['-O3', '-march=native', '-fopenmp', '-w']
     opts.append('-DVERSION_INFO="%s"' % self.distribution.get_version())
     opts.append(cpp_flag(self.compiler))
     if has_flag(self.compiler, '-fvisibility=hidden'):

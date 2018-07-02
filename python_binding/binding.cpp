@@ -38,6 +38,8 @@ class Index {
       IntIndex point_num = in_file.tellg() / (4 + point_dim * 4);
 
       cout << file_path << " has " << point_num << " points and " << point_dim << " dims" << endl;
+      dataset_ptr_->reserve(point_num);
+
       in_file.seekg(0, ios::beg);
       for (IntIndex point_id = 0; point_id < point_num; point_id++) {
         in_file.seekg(4, ios::cur);
